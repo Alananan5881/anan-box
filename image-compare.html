@@ -15,25 +15,59 @@
             padding: 0;
             height: 100vh;
             overflow: hidden; 
+            display: flex;
+            flex-direction: column;
         }
 
-        /* 顶部导航栏 */
+        /* === 顶部导航栏 === */
         .top-bar {
-            min-height: 40px;
-            max-height: 40px;
+            min-height: 48px;
+            max-height: 48px;
             background: #fff;
             border-bottom: 1px solid #eef1f5;
             display: flex;
             align-items: center;
-            padding: 0px 20px;
-            position: fixed;
-            top: 0; left: 0; right: 0;
+            justify-content: space-between;
+            padding: 0 20px;
+            position: relative;
             z-index: 100;
-            box-sizing: border-box;
+            flex-shrink: 0;
         }
-        .top-bar h1 { font-size: 18px; color: #1a2b4a; margin: 0; font-weight: 600; }
+        
+        /* 左侧：百宝箱返回按钮 */
+        #back-to-box {
+            display: flex; 
+            align-items: center; 
+            gap: 6px;
+            background: none; 
+            border: none; 
+            padding: 4px 8px;
+            color: #1a2b4a; 
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        #back-to-box:hover { background: #f0f4f8; color: #1d4ed8; }
+        #back-to-box svg { flex-shrink: 0; }
+
+        /* 中间：标题 */
+        .tool-title { 
+            font-size: 18px; 
+            color: #1a2b4a; 
+            margin: 0; 
+            font-weight: 600; 
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+        }
+
+        /* 右侧：重新导入按钮 */
         .btn-back {
-            padding: 4px 12px;
+            padding: 5px 12px;
             border: 1px solid #d0d7de;
             color: #555;
             background: #fff;
@@ -41,17 +75,33 @@
             font-size: 12px;
             cursor: pointer;
             transition: all 0.2s;
-            margin-right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
         }
-        .btn-back:hover { border-color: #007bff; color: #007bff; }
+        .btn-back:hover { border-color: #007bff; color: #007bff; background: #f8fbff; }
 
-        /* 首页：居中上传区 */
+        /* ✅ 刷新图标 ↺ 样式与动画 */
+        .refresh-icon {
+            display: inline-block;
+            font-size: 14px;
+            line-height: 1;
+            transition: transform 0.4s ease;
+        }
+        /* 悬停时逆时针旋转360°（负值匹配↺方向） */
+        .btn-back:hover .refresh-icon {
+            transform: rotate(-360deg);
+        }
+
+        /* === 首页：居中上传区 === */
         #uploadView {
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            flex: 1;
             width: 100%;
+            padding: 20px;
         }
         .upload-area {
             display: flex;
@@ -79,16 +129,17 @@
         }
         .btn-template:hover { border-color: #007bff; color: #007bff; background: #fff; }
 
-        /* 预览页：全屏表格 */
+        /* === 预览页：全屏表格 === */
         #previewView {
             display: none; 
-            padding-top: 40px; 
-            height: 100vh;
+            flex: 1;
             width: 100%;
             position: relative;
             overflow-y: auto; 
+            padding-bottom: 50px;
         }
-        table { width: 100%; height: 100%; border-collapse: collapse; table-layout: fixed; }
+
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         th, td { border: 1px solid #eef1f5; padding: 10px; text-align: center; vertical-align: middle; word-wrap: break-word; }
         th { 
             background-color: #007bff; 
@@ -102,7 +153,6 @@
         }
         tr:nth-child(even) { background-color: #fafbfc; }
         
-        /* ID列强制缩窄 */
         td:first-child, th:first-child { 
             width: 60px; 
             max-width: 60px; 
@@ -113,17 +163,17 @@
         }
         
         .image-container { display: flex; justify-content: center; align-items: center; height: 100%; min-height: 200px; }
-        img { max-width: 100%; max-height: 80vh; border-radius: 6px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; object-fit: contain; border: 1px solid #eee; }
+        img { max-width: 100%; max-height: calc(100vh - 160px); border-radius: 6px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; object-fit: contain; border: 1px solid #eee; }
         img:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
 
-        /* 左右翻页悬浮按钮 */
+        /* === 左右翻页悬浮按钮 === */
         .nav-btn {
             position: fixed;
             top: 50%;
             transform: translateY(-50%);
             width: 30px;
             height: 100px;
-            background: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.7);
             backdrop-filter: blur(2px);
             border: 1px solid #ddd;
             display: flex;
@@ -140,7 +190,7 @@
         .nav-prev { left: 0; border-radius: 0 8px 8px 0; }
         .nav-next { right: 0; border-radius: 8px 0 0 8px; }
 
-        /* 底部页码 */
+        /* === 底部页码 === */
         .bottom-bar {
             position: fixed;
             bottom: 0; left: 0; right: 0;
@@ -153,14 +203,13 @@
             gap: 10px;
             font-size: 14px;
             color: #555;
-            z-index: 50;
+            z-index: 95;
         }
         .bottom-bar button { padding: 5px 12px; border: 1px solid #ddd; background: #fff; cursor: pointer; border-radius: 4px; font-size: 13px; }
         .bottom-bar button:hover:not(:disabled) { border-color: #007bff; color: #007bff; }
         .bottom-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .current-page { font-weight: bold; color: #007bff; margin: 0 5px; }
 
-        /* ===== 模态框样式（保留原有设计，仅优化交互）===== */
+        /* === 模态框样式 === */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -171,48 +220,51 @@
             z-index: 1000;
             overflow: hidden;
         }
-
         #modalImage {
             max-width: none; 
             max-height: none; 
             cursor: grab; 
-            /* 关键：添加平滑过渡，拖拽时通过JS临时移除以避免延迟感 */
             transition: transform 0.15s ease-out; 
             user-select: none;
             -webkit-user-drag: none;
         }
-        #modalImage.dragging {
-            cursor: grabbing;
-            transition: none !important; /* 拖拽时禁用过渡，保证跟手性 */
-        }
+        #modalImage.dragging { cursor: grabbing; transition: none !important; }
 
-        /* 缩放滑块样式（完全保留原版） */
         #zoomSlider {
-            -webkit-appearance: none;
-            width: 100%;
-            height: 6px;
-            border-radius: 3px;
-            background: #444;
-            outline: none;
+            -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: #444; outline: none;
         }
         #zoomSlider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #007bff;
-            cursor: pointer;
-            border: 2px solid #fff;
+            -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%;
+            background: #007bff; cursor: pointer; border: 2px solid #fff;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .tool-title { font-size: 15px; }
+            #back-to-box span { display: none; }
+            .btn-back span { display: none; }
+            .nav-btn { width: 24px; height: 60px; font-size: 18px; }
         }
     </style>
 </head>
 <body>
 
-    <!-- 顶部导航栏 -->
+    <!-- ✅ 顶部导航栏 -->
     <div class="top-bar">
-        <button class="btn-back" id="backBtn" style="display:none;" onclick="goBackToUpload()"><重新导入</button>
-        <h1 style="font-size: 14px; margin: 0; font-weight: 600; color: #1a2b4a;">🖼️ 安安小工具系列 | 多图对比预览</h1>
+        <!-- 左：百宝箱返回 -->
+        <button id="back-to-box" onclick="location.href='index.html'" title="返回百宝箱主页">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span>百宝箱</span>
+        </button>
+
+        <!-- 中：标题 -->
+        <h1 class="tool-title">🖼️ 安安小工具系列 | 多图对比预览</h1>
+
+        <!-- ✅ 右：重新导入（使用 ↺ 字符 + 旋转动画） -->
+        <button class="btn-back" id="backBtn" style="display:none;" onclick="goBackToUpload()">
+            <span class="refresh-icon">↺</span>
+            <span>重新导入</span>
+        </button>
     </div>
 
     <!-- 视图1：上传区 -->
@@ -229,13 +281,11 @@
 
     <!-- 视图2：预览区 -->
     <div id="previewView">
-        <!-- 左右翻页按钮 -->
         <button class="nav-btn nav-prev" id="prevBtn" onclick="changePage(currentPage - 1)">&lt;</button>
         <button class="nav-btn nav-next" id="nextBtn" onclick="changePage(currentPage + 1)">&gt;</button>
 
         <div id="tableContainer"></div>
 
-        <!-- 底部页码与跳转区 -->
         <div class="bottom-bar">
             <button onclick="changePage(currentPage - 1)">上一页</button>
             <span style="display:flex;align-items:center;gap:5px;font-size:13px;color:#555;">
@@ -261,19 +311,14 @@
         <p style="margin-top: 10px;">松开鼠标以导入文件</p>
     </div>
 
-    <!-- 图片放大模态框（结构完全保留，仅优化内部交互） -->
+    <!-- 图片放大模态框 -->
     <div class="modal-overlay" id="imageModal">
-        <!-- 关闭按钮 -->
         <div style="position: absolute; top: 10px; right: 10px; z-index: 1001;" onclick="event.stopPropagation(); closeModal();">
             <button style="background: #333; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 16px;">×</button>
         </div>
-        
-        <!-- 图片容器：点击空白处关闭 -->
         <div id="modalBackdrop" style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden;">
             <img id="modalImage" src="" alt="大图预览" onclick="event.stopPropagation();">
         </div>
-        
-        <!-- 缩放与旋转控制条 -->
         <div style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 80%; max-width: 300px; z-index: 1001; display: flex; align-items: center; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 4px;" onclick="event.stopPropagation();">
             <button onclick="event.stopPropagation(); rotateImage(90)" style="background: #007bff; color: #fff; border: none; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 10px;" title="顺时针旋转90°">⟳</button>
             <span style="color: #fff; font-size: 12px; margin-right: 10px;">缩放:</span>
@@ -300,24 +345,16 @@
     const zoomSlider = document.getElementById('zoomSlider');
     const zoomValue = document.getElementById('zoomValue');
 
-    // --- 模态框状态变量 ---
-    let currentScale = 1;
-    let currentRotation = 0;
-    let offsetX = 0;
-    let offsetY = 0;
-    let isDragging = false;
-    let startX, startY, startOffsetX, startOffsetY;
-
-    let allData = [];
-    let headers = [];
-    let currentPage = 1;
+    let currentScale = 1, currentRotation = 0, offsetX = 0, offsetY = 0;
+    let isDragging = false, startX, startY, startOffsetX, startOffsetY;
+    let allData = [], headers = [], currentPage = 1;
     const pageSize = 1; 
 
-    // --- 1. 视图切换逻辑 ---
+    // --- 视图切换 ---
     function switchToPreview() {
         uploadView.style.display = 'none';
         previewView.style.display = 'block';
-        backBtn.style.display = 'inline-block';
+        backBtn.style.display = 'flex';
     }
 
     window.goBackToUpload = function() {
@@ -328,7 +365,7 @@
         statusText.textContent = '等待上传...';
     };
 
-    // --- 2. 模版下载 ---
+    // --- 模版下载 ---
     function downloadTemplate() {
         const templateHeaders = ['id', '原图', '切题图1', '切题图2', '切题图3'];
         const ws = XLSX.utils.aoa_to_sheet([templateHeaders]);
@@ -338,29 +375,18 @@
         XLSX.writeFile(wb, "图片对比导入模版.xlsx");
     }
 
-    // --- 3. 模态框交互（核心优化部分）---
-    
-    // 应用变换（统一入口）
+    // --- 模态框交互 ---
     function applyTransform(smooth = true) {
         if (!smooth) modalImage.classList.add('dragging');
         else modalImage.classList.remove('dragging');
-        
         modalImage.style.transform = `rotate(${currentRotation}deg) scale(${currentScale}) translate(${offsetX}px, ${offsetY}px)`;
-        
-        // 同步滑块UI
         const percent = Math.round(currentScale * 100);
         zoomSlider.value = Math.min(500, Math.max(10, percent));
         zoomValue.textContent = `${percent}%`;
     }
 
     window.openModal = function(src) {
-        // 重置所有状态
-        currentScale = 1;
-        currentRotation = 0;
-        offsetX = 0;
-        offsetY = 0;
-        isDragging = false;
-        
+        currentScale = 1; currentRotation = 0; offsetX = 0; offsetY = 0; isDragging = false;
         modalImage.src = src;
         modal.style.display = 'flex';
         applyTransform(true);
@@ -372,18 +398,9 @@
         modalImage.classList.remove('dragging');
     }
 
-    // 点击遮罩关闭
-    modalBackdrop.addEventListener('click', (e) => {
-        if (e.target === modalBackdrop) closeModal();
-    });
-
-    // 滑块缩放
-    zoomSlider.addEventListener('input', function() {
-        currentScale = this.value / 100;
-        applyTransform(true);
-    });
-
-    // 滚轮缩放
+    modalBackdrop.addEventListener('click', (e) => { if (e.target === modalBackdrop) closeModal(); });
+    zoomSlider.addEventListener('input', function() { currentScale = this.value / 100; applyTransform(true); });
+    
     modal.addEventListener('wheel', (e) => {
         if (modal.style.display !== 'flex') return;
         e.preventDefault();
@@ -392,43 +409,30 @@
         applyTransform(true);
     }, { passive: false });
 
-    // 拖拽平移
     modalImage.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        isDragging = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        startOffsetX = offsetX;
-        startOffsetY = offsetY;
+        e.preventDefault(); e.stopPropagation();
+        isDragging = true; startX = e.clientX; startY = e.clientY;
+        startOffsetX = offsetX; startOffsetY = offsetY;
         modalImage.classList.add('dragging');
     });
 
     window.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        offsetX = startOffsetX + dx / currentScale;
-        offsetY = startOffsetY + dy / currentScale;
-        applyTransform(false); // 拖拽时禁用过渡
+        offsetX = startOffsetX + (e.clientX - startX) / currentScale;
+        offsetY = startOffsetY + (e.clientY - startY) / currentScale;
+        applyTransform(false);
     });
 
     window.addEventListener('mouseup', () => {
-        if (isDragging) {
-            isDragging = false;
-            modalImage.classList.remove('dragging');
-        }
+        if (isDragging) { isDragging = false; modalImage.classList.remove('dragging'); }
     });
 
-    // 旋转
     window.rotateImage = function(degrees) {
         currentRotation = (currentRotation + degrees) % 360;
         applyTransform(true);
     };
 
-    // 键盘快捷键
     document.addEventListener('keydown', (e) => {
-        // 模态框打开时的快捷键
         if (modal.style.display === 'flex') {
             if (e.key === 'Escape') closeModal();
             if (e.key === '+' || e.key === '=') { currentScale = Math.min(5, currentScale + 0.1); applyTransform(true); }
@@ -437,21 +441,18 @@
             if (e.key === 'ArrowRight') { offsetX -= 20 / currentScale; applyTransform(true); }
             if (e.key === 'ArrowUp') { offsetY += 20 / currentScale; applyTransform(true); }
             if (e.key === 'ArrowDown') { offsetY -= 20 / currentScale; applyTransform(true); }
-            return; // 模态框打开时不触发翻页
+            return;
         }
-
-        // 预览页翻页快捷键
         if (previewView.style.display !== 'none') {
             if (e.key === 'ArrowLeft') changePage(currentPage - 1);
             if (e.key === 'ArrowRight') changePage(currentPage + 1);
         }
     });
 
-    // --- 4. 文件上传与解析 ---
+    // --- 文件上传与解析 ---
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
-
         statusText.textContent = "正在解析文件...";
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -460,16 +461,10 @@
                 const workbook = XLSX.read(data, { type: 'array' });
                 const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                
-                if (jsonData.length < 2) {
-                    statusText.textContent = "文件中没有有效数据！";
-                    return;
-                }
-
+                if (jsonData.length < 2) { statusText.textContent = "文件中没有有效数据！"; return; }
                 headers = jsonData[0];
                 allData = jsonData.slice(1);
                 currentPage = 1;
-                
                 renderTable();
                 updatePaginationUI();
                 switchToPreview();
@@ -481,19 +476,16 @@
         reader.readAsArrayBuffer(file);
     });
 
-    // --- 5. 渲染表格 ---
+    // --- 渲染表格 ---
     function renderTable() {
         if (allData.length === 0) return;
         const rowData = allData[currentPage - 1];
-
         let html = `<table><thead><tr>`;
         headers.forEach(h => { html += `<th>${h}</th>`; });
         html += `</tr></thead><tbody><tr>`;
-
         rowData.forEach((cell, index) => {
             const val = cell !== undefined ? String(cell) : '';
             const isImg = /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(val) || val.startsWith('http');
-            
             if (isImg && val) {
                 const safeVal = val.replace(/'/g, "\\'");
                 html += `<td><div class="image-container"><img src="${val}" alt="${headers[index]}" onclick="openModal('${safeVal}')" onerror="this.outerHTML='<span style=color:#ccc;>图片加载失败</span>'"></div></td>`;
@@ -501,12 +493,11 @@
                 html += `<td>${val}</td>`;
             }
         });
-
         html += `</tr></tbody></table>`;
         tableContainer.innerHTML = html;
     }
 
-    // --- 6. 翻页与分页逻辑 ---
+    // --- 翻页与分页 ---
     window.changePage = function(page) {
         const totalPages = Math.ceil(allData.length / pageSize);
         if (page < 1 || page > totalPages || page === currentPage) return;
@@ -518,77 +509,38 @@
     function updatePaginationUI() {
         const totalPages = Math.ceil(allData.length / pageSize);
         const currentId = allData[currentPage - 1] ? allData[currentPage - 1][0] : currentPage;
-    
         totalPagesSpan.textContent = totalPages;
         currentIdSpan.textContent = currentId;
         realIdSpan.textContent = currentId;
-
         prevBtn.disabled = currentPage === 1;
         nextBtn.disabled = currentPage === totalPages;
     }
 
-    function handleIdInput(event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            jumpToTarget();
-        }
-    }
-
-    function jumpOnBlur() {
-        setTimeout(() => {
-            if (document.activeElement !== currentIdSpan) {
-                jumpToTarget();
-            }
-        }, 100);
-    }
+    function handleIdInput(event) { if (event.key === 'Enter') { event.preventDefault(); jumpToTarget(); } }
+    function jumpOnBlur() { setTimeout(() => { if (document.activeElement !== currentIdSpan) jumpToTarget(); }, 100); }
 
     function jumpToTarget() {
         const inputVal = currentIdSpan.textContent.trim();
         if (!inputVal || !allData.length) return;
-
         const targetNum = parseInt(inputVal);
         const totalPages = Math.ceil(allData.length / pageSize);
-    
         const idIndex = allData.findIndex(row => row[0] == targetNum);
-        if (idIndex !== -1) {
-            currentPage = idIndex + 1;
-            renderTable();
-            updatePaginationUI();
-            return;
-        }
-
-        if (targetNum >= 1 && targetNum <= totalPages) {
-            currentPage = targetNum;
-            renderTable();
-            updatePaginationUI();
-            return;
-        }
-    
+        if (idIndex !== -1) { currentPage = idIndex + 1; renderTable(); updatePaginationUI(); return; }
+        if (targetNum >= 1 && targetNum <= totalPages) { currentPage = targetNum; renderTable(); updatePaginationUI(); return; }
         updatePaginationUI();
     }
 
-    // --- 7. 拖拽上传逻辑 ---
+    // --- 拖拽上传 ---
     document.addEventListener('DOMContentLoaded', function() {
         const dropZone = document.getElementById('drop-zone');
-
-        window.addEventListener('dragenter', function(e) {
-            e.preventDefault();
-            dropZone.style.display = 'flex';
-        });
-
-        window.addEventListener('dragover', function(e) {
-            e.preventDefault();
-        });
-
+        window.addEventListener('dragenter', function(e) { e.preventDefault(); dropZone.style.display = 'flex'; });
+        window.addEventListener('dragover', function(e) { e.preventDefault(); });
         window.addEventListener('drop', function(e) {
-            e.preventDefault();
-            dropZone.style.display = 'none';
-
+            e.preventDefault(); dropZone.style.display = 'none';
             const files = e.dataTransfer.files;
             if (files.length > 0) {
                 fileInput.files = files;
-                const event = new Event('change', { bubbles: true });
-                fileInput.dispatchEvent(event);
+                fileInput.dispatchEvent(new Event('change', { bubbles: true }));
             }
         });
     });
