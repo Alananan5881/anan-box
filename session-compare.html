@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>安安小工具 - Session 多轮对比预览</title>
+    <title>安安小工具系列 | Session 多轮对比</title>
     <style>
         :root {
             --primary: #1d4ed8;
@@ -12,491 +12,272 @@
             --gray-700: #374151;
             --gray-900: #111827;
         }
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
-            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background: var(--gray-100);
             color: var(--gray-900);
-            padding: 20px;
             line-height: 1.6;
-            /* ✅ 允许 body 滚动，使表头可全局 sticky */
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        h1 {
-            font-size: 1.8rem;
-            color: var(--primary);
-            margin-bottom: 8px;
-        }
-        .controls {
+            height: 100vh;
             display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
+            flex-direction: column;
+            overflow: hidden; /* ✅ 防止 body 滚动，让内容区独立滚动 */
+        }
+
+        /* === 顶部导航栏（与 image-compare 统一） === */
+        .top-bar {
+            min-height: 48px;
+            max-height: 48px;
+            background: #fff;
+            border-bottom: 1px solid #eef1f5;
+            display: flex;
             align-items: center;
-            background: white;
-            padding: 14px;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            justify-content: space-between;
+            padding: 0 20px;
+            position: relative;
+            z-index: 100;
+            flex-shrink: 0;
         }
-        button {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
+        #back-to-box {
+            display: flex; align-items: center; gap: 6px;
+            background: none; border: none; padding: 4px 8px;
+            color: #1a2b4a; font-size: 14px; font-weight: 600;
+            cursor: pointer; border-radius: 4px; transition: all 0.2s ease; white-space: nowrap;
         }
-        button:hover { opacity: 0.9; }
+        #back-to-box:hover { background: #f0f4f8; color: #1d4ed8; }
+        .tool-title { 
+            font-size: 18px; color: #1a2b4a; margin: 0; font-weight: 600; 
+            position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap;
+        }
+        .header-actions { display: flex; gap: 8px; }
+        .btn-action {
+            padding: 5px 12px; border: 1px solid #d0d7de; color: #555; background: #fff;
+            border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-action:hover { border-color: var(--primary); color: var(--primary); background: #f8fbff; }
+        .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .btn-primary:hover { opacity: 0.9; color: #fff; }
+
+        /* === 主内容区（可滚动） === */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .controls {
+            display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; align-items: center;
+            background: white; padding: 14px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
 
         .input-section {
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.06);
-            margin-bottom: 20px;
+            background: white; border-radius: 8px; overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.06); margin-bottom: 20px;
         }
         .input-header {
-            background: #f3f4f6;
-            padding: 12px 16px;
-            font-weight: 600;
+            background: #f3f4f6; padding: 12px 16px; font-weight: 600;
+            display: flex; align-items: center; gap: 8px; position: relative;
         }
         #excel-input {
-            width: 100%;
-            height: 200px;
-            padding: 16px;
-            font-family: monospace;
-            font-size: 13px;
-            border: none;
-            resize: vertical;
-            outline: none;
-            background: #fcfdfd;
+            width: 100%; height: 200px; padding: 16px; font-family: monospace; font-size: 13px;
+            border: none; resize: vertical; outline: none; background: #fcfdfd;
         }
 
-        /* ✅ 表格区域：无包裹容器，直接置于 body 中 */
+        /* === 表格样式 === */
         .result-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            margin-top: 16px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 3px 15px rgba(0,0,0,0.08);
+            width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 16px;
+            background: white; border-radius: 8px; box-shadow: 0 3px 15px rgba(0,0,0,0.08);
         }
-        .result-table th,
-        .result-table td {
-            padding: 12px 10px;
-            text-align: left;
-            border-bottom: 1px solid var(--gray-200);
-            vertical-align: top;
+        .result-table th, .result-table td {
+            padding: 12px 10px; text-align: left; border-bottom: 1px solid var(--gray-200); vertical-align: top;
         }
-        /* ✅ 关键：表头全局吸顶（相对于 viewport） */
         .result-table thead th {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            background: #f9fafb;
+            position: sticky; top: 0; z-index: 20; background: #f9fafb;
             box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         }
-        .th-filter {
-            text-align: right !important;
-            white-space: nowrap;
-            min-width: 220px;
-        }
+        .th-filter { text-align: right !important; white-space: nowrap; min-width: 220px; }
         .filter-input {
-            padding: 6px 10px;
-            border: 1px solid #d1d5db;
-            border-radius: 5px;
-            width: 140px;
-            font-size: 13px;
-            outline: none;
-            transition: border-color 0.2s;
+            padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px; width: 140px;
+            font-size: 13px; outline: none; transition: border-color 0.2s;
         }
-        .filter-input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(29,78,216,0.15);
-        }
-        .filter-label {
-            font-size: 13px;
-            color: var(--gray-700);
-            margin-right: 6px;
-            font-weight: 500;
-        }
+        .filter-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(29,78,216,0.15); }
+        .filter-label { font-size: 13px; color: var(--gray-700); margin-right: 6px; font-weight: 500; }
 
         .col-round { width: 70px; font-weight: bold; color: var(--primary); }
         .col-query { max-width: 300px; word-break: break-word; }
-        .img-cell {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            min-height: 40px;
-            align-items: center;
-        }
+        .img-cell { display: flex; gap: 8px; flex-wrap: wrap; min-height: 40px; align-items: center; }
         .img-wrapper {
-            width: 120px;
-            height: 120px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            overflow: hidden;
-            cursor: zoom-in;
-            position: relative;
-            background: #f9fafb;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-            flex-shrink: 0;
+            width: 120px; height: 120px; border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden;
+            cursor: zoom-in; position: relative; background: #f9fafb; display: flex; align-items: center;
+            justify-content: center; transition: all 0.2s; flex-shrink: 0;
         }
-        .img-wrapper:hover {
-            border-color: var(--primary);
-            transform: translateY(-2px);
-        }
-        .img-wrapper img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-        }
+        .img-wrapper:hover { border-color: var(--primary); transform: translateY(-2px); }
+        .img-wrapper img { max-width: 100%; max-height: 100%; object-fit: contain; }
         .img-label {
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            background: rgba(0,0,0,0.6);
-            color: white;
-            font-size: 10px;
-            padding: 1px 4px;
-            border-radius: 2px;
+            position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.6);
+            color: white; font-size: 10px; padding: 1px 4px; border-radius: 2px;
         }
         .empty-tag {
-            color: #9ca3af;
-            font-style: italic;
-            font-size: 0.9rem;
-            padding: 8px;
-            background: #f3f4f6;
-            border-radius: 4px;
-            border: 1px dashed #d1d5db;
+            color: #9ca3af; font-style: italic; font-size: 0.9rem; padding: 8px;
+            background: #f3f4f6; border-radius: 4px; border: 1px dashed #d1d5db;
         }
 
-        /* 灯箱 */
+        /* === 灯箱 === */
         .lightbox {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.9);
-            display: none;
-            z-index: 2000;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; z-index: 2000;
+            justify-content: center; align-items: center; flex-direction: column;
         }
-        .lb-title {
-            color: white;
-            margin-bottom: 10px;
-            font-size: 1.1rem;
-        }
-        .lb-image {
-            max-width: 90vw;
-            max-height: 80vh;
-            object-fit: contain;
-            cursor: grab;
-        }
+        .lb-title { color: white; margin-bottom: 10px; font-size: 1.1rem; }
+        .lb-image { max-width: 90vw; max-height: 80vh; object-fit: contain; cursor: grab; }
         .lb-image:active { cursor: grabbing; }
-        .lb-close {
-            position: absolute;
-            top: 20px;
-            right: 30px;
-            color: white;
-            font-size: 40px;
-            cursor: pointer;
-        }
-        .lb-tools {
-            margin-top: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+        .lb-close { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; }
+        .lb-tools { margin-top: 15px; display: flex; align-items: center; gap: 10px; }
         .lb-btn {
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px;
+            border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
         }
-        #zoomVal {
-            color: white;
-            min-width: 52px;
-            text-align: center;
-            font-size: 14px;
-        }
-        #zoomSlider {
-            width: 100px;
-            height: 4px;
-            appearance: none;
-            background: #ddd;
-            border-radius: 2px;
-            cursor: pointer;
-        }
+        #zoomVal { color: white; min-width: 52px; text-align: center; font-size: 14px; }
+        #zoomSlider { width: 100px; height: 4px; appearance: none; background: #ddd; border-radius: 2px; cursor: pointer; }
         #zoomSlider::-webkit-slider-thumb {
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: white;
-            cursor: pointer;
+            appearance: none; width: 16px; height: 16px; border-radius: 50%; background: white; cursor: pointer;
         }
 
+        /* === 模板提示框 === */
+        .template-hint-trigger {
+            display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;
+            border-radius: 50%; background: #d1d5db; color: white; font-size: 12px; font-weight: bold;
+            cursor: help; flex-shrink: 0; transition: background 0.2s; position: relative;
+        }
+        .template-hint-trigger:hover { background: var(--primary); }
+        .template-hint-popup {
+            position: absolute; top: calc(100% + 6px); left: 16px; z-index: 100;
+            background: rgba(17, 24, 39, 0.95); color: #e5e7eb; border-radius: 8px; overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25); max-width: 420px; opacity: 0; transform: translateY(-4px);
+            transition: opacity 0.25s ease, transform 0.25s ease; pointer-events: none;
+        }
+        .template-hint-trigger:hover .template-hint-popup,
+        .template-hint-trigger:focus .template-hint-popup { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        .hint-table { display: grid; grid-template-columns: 150px 150px 100px; font-size: 12px; line-height: 1.4; }
+        .hint-cell { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.08); border-right: 1px solid rgba(255,255,255,0.08); overflow: hidden; text-overflow: ellipsis; }
+        .hint-cell:last-child { border-right: none; }
+        .hint-header { background: rgba(59, 130, 246, 0.15); font-weight: 600; color: #93c5fd; }
+        .hint-data:nth-child(even) { background: rgba(255,255,255,0.05); }
+        .hint-col-round { text-align: right; font-family: monospace; color: #a5b4fc; }
+        .hint-col-img { font-family: monospace; word-break: break-all; white-space: normal; color: #cbd5e1; }
+        .hint-col-img::before { content: "🔗 "; color: #60a5fa; }
+        .hint-col-text { text-overflow: ellipsis; overflow: hidden; color: #f1f5f9; }
+        .hint-empty { color: #9ca3af; font-style: italic; }
+        .template-hint-popup::before {
+            content: ''; position: absolute; top: -5px; left: 24px; width: 10px; height: 10px;
+            background: rgba(17, 24, 39, 0.95); transform: rotate(45deg); z-index: 1;
+        }
 
-    /* === 新增：专业级模板提示框 === */
-    .input-header {
-        background: #f3f4f6;
-        padding: 12px 16px;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        position: relative;
-    }
-
-    .template-hint-trigger {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: #d1d5db;
-        color: white;
-        font-size: 12px;
-        font-weight: bold;
-        cursor: help;
-        flex-shrink: 0;
-        transition: background 0.2s;
-        position: relative;
-    }
-
-    .template-hint-trigger:hover {
-        background: var(--primary);
-    }
-
-    /* 表格化提示框 */
-    .template-hint-popup {
-        position: absolute;
-        top: calc(100% + 6px);
-        left: 16px;
-        z-index: 100;
-        background: rgba(17, 24, 39, 0.95);
-        color: #e5e7eb;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-        min-width: 0px;
-        max-width: 420px;
-        opacity: 0;
-        transform: translateY(-4px);
-        transition: opacity 0.25s ease, transform 0.25s ease;
-        pointer-events: none;
-    }
-
-    .template-hint-trigger:hover .template-hint-popup,
-    .template-hint-trigger:focus .template-hint-popup {
-        opacity: 1;
-        transform: translateY(0);
-        pointer-events: auto;
-    }
-
-    /* 表格结构 */
-    .hint-table {
-        display: grid;
-        grid-template-columns: 150px 150px 100px; /* 图片 | 文本 | 轮次 */
-        gap: 0;
-        font-size: 12px;
-        line-height: 1.4;
-        white-space: nowrap;
-        overflow: hidden;
-    }
-
-    .hint-row {
-        display: contents;
-    }
-
-    .hint-cell {
-        padding: 6px 8px;
-        border-bottom: 1px solid rgba(255,255,255,0.08);
-        border-right: 1px solid rgba(255,255,255,0.08);
-        text-overflow: ellipsis;
-        overflow: hidden;
-    }
-    .hint-cell:last-child {
-        border-right: none;
-    }
-
-    /* 表头样式 */
-    .hint-header {
-        background: rgba(59, 130, 246, 0.15); /* primary-500 半透明 */
-        font-weight: 600;
-        color: #93c5fd;
-    }
-
-    /* 数据行样式 */
-    .hint-data:nth-child(even) {
-        background: rgba(255,255,255,0.05);
-    }
-
-    /* 轮次列右对齐 */
-    .hint-col-round {
-        text-align: right;
-        font-family: 'SFMono-Regular', Consolas, monospace;
-        color: #a5b4fc;
-    }
-
-    /* 图片列：截断长URL */
-    .hint-col-img {
-        font-family: 'SFMono-Regular', Consolas, monospace;
-        word-break: break-all;
-        white-space: normal;
-        color: #cbd5e1;
-    }
-    .hint-col-img::before {
-        content: "🔗 ";
-        color: #60a5fa;
-    }
-
-    .hint-col-text {
-        /* 单行截断 */
-        text-overflow: ellipsis;
-        overflow: hidden;
-        color: #f1f5f9;
-    }
-
-    /* 空值标识 */
-    .hint-empty {
-        color: #9ca3af;
-        font-style: italic;
-    }
-
-    /* 小三角箭头（居中对齐） */
-    .template-hint-popup::before {
-        content: '';
-        position: absolute;
-        top: -5px;
-        left: 24px; /* 与问号按钮中心对齐 */
-        width: 10px;
-        height: 10px;
-        background: rgba(17, 24, 39, 0.95);
-        transform: rotate(45deg);
-        z-index: 1;
-    }
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .tool-title { font-size: 15px; }
+            #back-to-box span { display: none; }
+            .main-content { padding: 12px; }
+            .img-wrapper { width: 80px; height: 80px; }
+        }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <h1>📌 安安小工具 - Session 多轮对比预览</h1>
-</div>
+    <!-- ✅ 顶部导航栏（三栏布局） -->
+    <div class="top-bar">
+        <button id="back-to-box" onclick="location.href='index.html'" title="返回百宝箱主页">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span>百宝箱</span>
+        </button>
+        <h1 class="tool-title">📌 安安小工具系列 | Session 多轮对比</h1>
+        <div class="header-actions">
+            <button class="btn-action btn-primary" onclick="parseData()">解析粘贴内容</button>
+            <button class="btn-action" onclick="clearAll()">清空</button>
+        </div>
+    </div>
 
-<div class="controls">
-    <button onclick="parseData()">解析粘贴内容</button>
-    <button onclick="clearAll()" style="background:#64748b;">清空</button>
-</div>
-
-<div class="input-section">
-    <div class="input-header">
-        请在这里直接 Ctrl+V 粘贴 Excel 内容
-        <span class="template-hint-trigger" tabindex="0" aria-label="查看粘贴模板格式">
-            ?
-            <!-- ✅ 表格化提示框 -->
-            <div class="template-hint-popup">
-                <div class="hint-table">
-                    <!-- 表头 -->
-                    <div class="hint-row">
-                        <div class="hint-cell hint-header hint-col-img">图片query</div>
-                        <div class="hint-cell hint-header hint-col-text">文本query</div>
-                        <div class="hint-cell hint-header hint-col-round">session内第几轮</div>
+    <!-- ✅ 主内容区（独立滚动） -->
+    <div class="main-content">
+        <div class="input-section">
+            <div class="input-header">
+                请在这里直接 Ctrl+V 粘贴 Excel 内容
+                <span class="template-hint-trigger" tabindex="0" aria-label="查看粘贴模板格式">
+                    ?
+                    <div class="template-hint-popup">
+                        <div class="hint-table">
+                            <div class="hint-row">
+                                <div class="hint-cell hint-header hint-col-img">图片query</div>
+                                <div class="hint-cell hint-header hint-col-text">文本query</div>
+                                <div class="hint-cell hint-header hint-col-round">session内第几轮</div>
+                            </div>
+                            <div class="hint-row hint-data">
+                                <div class="hint-cell hint-col-img">https://img.example.com/a.jpg</div>
+                                <div class="hint-cell hint-col-text">解答题目</div>
+                                <div class="hint-cell hint-col-round">1</div>
+                            </div>
+                            <div class="hint-row hint-data">
+                                <div class="hint-cell hint-col-img">https://img.example.com/b.jpg</div>
+                                <div class="hint-cell hint-col-text">免疫细胞有哪些</div>
+                                <div class="hint-cell hint-col-round">2</div>
+                            </div>
+                            <div class="hint-row hint-data">
+                                <div class="hint-cell hint-col-img"><span class="hint-empty">—</span></div>
+                                <div class="hint-cell hint-col-text">这道题是多选你怎么只给了一个答案</div>
+                                <div class="hint-cell hint-col-round">3</div>
+                            </div>
+                        </div>
                     </div>
-                    <!-- 示例行 1 -->
-                    <div class="hint-row hint-data">
-                        <div class="hint-cell hint-col-img">https://img.example.com/a.jpg</div>
-                        <div class="hint-cell hint-col-text">解答题目</div>
-                        <div class="hint-cell hint-col-round">1</div>
-                    </div>
-                    <!-- 示例行 2 -->
-                    <div class="hint-row hint-data">
-                        <div class="hint-cell hint-col-img">https://img.example.com/b.jpg</div>
-                        <div class="hint-cell hint-col-text">免疫细胞有哪些</div>
-                        <div class="hint-cell hint-col-round">2</div>
-                    </div>
-                    <!-- 示例行 3（空图片） -->
-                    <div class="hint-row hint-data">
-                        <div class="hint-cell hint-col-img"><span class="hint-empty">—</span></div>
-                        <div class="hint-cell hint-col-text">这道题是多选你怎么只给了一个答案</div>
-                        <div class="hint-cell hint-col-round">3</div>
-                    </div>
-                </div>
+                </span>
             </div>
-        </span>
-    </div>
-    <textarea id="excel-input" placeholder="将 Excel 中的整列或整块区域复制粘贴到这里..."></textarea>
-</div>
+            <textarea id="excel-input" placeholder="将 Excel 中的整列或整块区域复制粘贴到这里..."></textarea>
+        </div>
 
-<!-- ✅ 表格直接放在 body 中，无包裹容器 -->
-<table class="result-table" id="resultTable">
-    <thead>
-        <tr>
-            <th class="col-round">轮数</th>
-            <th class="col-query">文本query</th>
-            <th class="th-filter">
-                <span class="filter-label">筛选轮次：</span>
-                <input type="text" class="filter-input" id="filterRound" placeholder="如: 1,3,5-8" oninput="applyFilter()">
-            </th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr><td colspan="3" style="text-align:center;padding:40px;color:#999;">等待粘贴数据...</td></tr>
-    </tbody>
-</table>
-
-<!-- 灯箱 -->
-<div class="lightbox" id="lightbox" onclick="if(event.target===this) closeLB()">
-    <div class="lb-close" onclick="closeLB()">&times;</div>
-    <div class="lb-title" id="lbTitle"></div>
-    <img src="" class="lb-image" id="lbImg">
-    <div class="lb-tools">
-        <button class="lb-btn" onclick="rotate(-90)">↺</button>
-        <span id="zoomVal">100%</span>
-        <input type="range" id="zoomSlider" min="0.1" max="8" step="0.1" value="1">
+        <table class="result-table" id="resultTable">
+            <thead>
+                <tr>
+                    <th class="col-round">轮数</th>
+                    <th class="col-query">文本query</th>
+                    <th class="th-filter">
+                        <span class="filter-label">筛选轮次：</span>
+                        <input type="text" class="filter-input" id="filterRound" placeholder="如: 1,3,5-8" oninput="applyFilter()">
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="3" style="text-align:center;padding:40px;color:#999;">等待粘贴数据...</td></tr>
+            </tbody>
+        </table>
     </div>
-</div>
+
+    <!-- 灯箱 -->
+    <div class="lightbox" id="lightbox" onclick="if(event.target===this) closeLB()">
+        <div class="lb-close" onclick="closeLB()">&times;</div>
+        <div class="lb-title" id="lbTitle"></div>
+        <img src="" class="lb-image" id="lbImg">
+        <div class="lb-tools">
+            <button class="lb-btn" onclick="rotate(-90)">↺</button>
+            <span id="zoomVal">100%</span>
+            <input type="range" id="zoomSlider" min="0.1" max="8" step="0.1" value="1">
+        </div>
+    </div>
 
 <script>
-// === 🔒 彻底禁用拖拽（解决半透明影子 + 禁止符号）===
+// === 🔒 彻底禁用拖拽 ===
 document.addEventListener('dragstart', e => {
     if (e.target.tagName === 'IMG' || e.target.closest('.img-wrapper')) {
-        e.preventDefault();
-        e.stopPropagation();
+        e.preventDefault(); e.stopPropagation();
     }
 }, true);
 
 // === 灯箱状态 ===
 let scale = 1, rot = 0, imgX = 0, imgY = 0;
 let isDragging = false, startX = 0, startY = 0;
-
 const lb = document.getElementById('lightbox');
 const lbImg = document.getElementById('lbImg');
 const zoomVal = document.getElementById('zoomVal');
 const zoomSlider = document.getElementById('zoomSlider');
 
-// 初始化滑块
 zoomSlider.oninput = () => {
     scale = parseFloat(zoomSlider.value);
     updateTransform();
@@ -507,8 +288,7 @@ function openLB(url, round, query) {
     lbImg.src = url;
     document.getElementById('lbTitle').textContent = `轮次 #${round} | ${query || '(无文本)'}`;
     scale = 1; rot = 0; imgX = 0; imgY = 0;
-    zoomSlider.value = '1';
-    zoomVal.textContent = '100%';
+    zoomSlider.value = '1'; zoomVal.textContent = '100%';
     updateTransform();
     lb.style.display = 'flex';
     document.body.style.overflow = 'hidden';
@@ -517,8 +297,7 @@ function openLB(url, round, query) {
 function closeLB() {
     lb.style.display = 'none';
     document.body.style.overflow = '';
-    lbImg.src = '';
-    isDragging = false;
+    lbImg.src = ''; isDragging = false;
 }
 
 function updateTransform() {
@@ -526,7 +305,6 @@ function updateTransform() {
     lbImg.style.transition = isDragging ? 'none' : 'transform 0.15s ease-out';
 }
 
-// Ctrl+滚轮缩放
 lbImg.parentElement.addEventListener('wheel', e => {
     if (e.ctrlKey) {
         e.preventDefault();
@@ -537,174 +315,88 @@ lbImg.parentElement.addEventListener('wheel', e => {
         updateTransform();
     } else {
         e.preventDefault();
-        imgX -= e.deltaX * 0.5;
-        imgY -= e.deltaY * 0.5;
+        imgX -= e.deltaX * 0.5; imgY -= e.deltaY * 0.5;
         updateTransform();
     }
 }, { passive: false });
 
-// ✅ 拖拽：关键修复点 —— 阻止默认行为 + 捕获阶段拦截
 lbImg.addEventListener('mousedown', e => {
     if (e.button !== 0) return;
-    e.preventDefault(); // 🔥 必须阻止默认行为
-    isDragging = true;
-    startX = e.clientX - imgX;
-    startY = e.clientY - imgY;
-    lbImg.style.cursor = 'grabbing';
-    updateTransform();
+    e.preventDefault(); isDragging = true;
+    startX = e.clientX - imgX; startY = e.clientY - imgY;
+    lbImg.style.cursor = 'grabbing'; updateTransform();
 });
 
 document.addEventListener('mousemove', e => {
     if (!isDragging) return;
-    imgX = e.clientX - startX;
-    imgY = e.clientY - startY;
+    imgX = e.clientX - startX; imgY = e.clientY - startY;
     updateTransform();
 });
 
 const stopDrag = () => {
-    if (isDragging) {
-        isDragging = false;
-        lbImg.style.cursor = 'grab';
-        updateTransform();
-    }
+    if (isDragging) { isDragging = false; lbImg.style.cursor = 'grab'; updateTransform(); }
 };
 document.addEventListener('mouseup', stopDrag);
 document.addEventListener('mouseleave', stopDrag);
 
-// 键盘
 document.addEventListener('keydown', e => {
     if (lb.style.display !== 'flex') return;
     if (e.key === 'Escape') closeLB();
-    if (e.key === '+' || e.key === '=') {
-        e.preventDefault();
-        scale = Math.min(8, scale + 0.1);
-        zoomSlider.value = scale.toFixed(1);
-        zoomVal.textContent = Math.round(scale * 100) + '%';
-        updateTransform();
-    }
-    if (e.key === '-' || e.key === '_') {
-        e.preventDefault();
-        scale = Math.max(0.1, scale - 0.1);
-        zoomSlider.value = scale.toFixed(1);
-        zoomVal.textContent = Math.round(scale * 100) + '%';
-        updateTransform();
-    }
-    if (e.key === 'r' || e.key === 'R') {
-        e.preventDefault();
-        rot = (rot + 90) % 360;
-        updateTransform();
-    }
+    if (e.key === '+' || e.key === '=') { e.preventDefault(); scale = Math.min(8, scale + 0.1); zoomSlider.value = scale.toFixed(1); zoomVal.textContent = Math.round(scale * 100) + '%'; updateTransform(); }
+    if (e.key === '-' || e.key === '_') { e.preventDefault(); scale = Math.max(0.1, scale - 0.1); zoomSlider.value = scale.toFixed(1); zoomVal.textContent = Math.round(scale * 100) + '%'; updateTransform(); }
+    if (e.key === 'r' || e.key === 'R') { e.preventDefault(); rot = (rot + 90) % 360; updateTransform(); }
 });
 
-function rotate(deg) {
-    rot = (rot + deg + 360) % 360;
-    updateTransform();
-}
+function rotate(deg) { rot = (rot + deg + 360) % 360; updateTransform(); }
 
-// === 数据解析（含组7空首列修复）===
+// === 数据解析 ===
 function parseData() {
     const raw = document.getElementById('excel-input').value.trim();
     if (!raw) return alert('请先粘贴数据');
-
-    const rows = [];
-    const lines = raw.split(/\r?\n/);
-    let buffer = "";
-    let inQuotes = false;
-
+    const rows = []; const lines = raw.split(/\r?\n/);
+    let buffer = "", inQuotes = false;
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const quoteCount = (line.match(/"/g) || []).length;
-        
+        const line = lines[i]; const quoteCount = (line.match(/"/g) || []).length;
         if (inQuotes) {
             buffer += "\n" + line;
-            if ((buffer.match(/"/g) || []).length % 2 === 0) {
-                processRow(buffer, rows);
-                buffer = "";
-                inQuotes = false;
-            }
+            if ((buffer.match(/"/g) || []).length % 2 === 0) { processRow(buffer, rows); buffer = ""; inQuotes = false; }
         } else {
-            if (quoteCount % 2 !== 0) {
-                buffer = line;
-                inQuotes = true;
-            } else {
-                processRow(line, rows);
-            }
+            if (quoteCount % 2 !== 0) { buffer = line; inQuotes = true; }
+            else { processRow(line, rows); }
         }
     }
-
-    renderTable(rows);
-    applyFilter();
+    renderTable(rows); applyFilter();
 }
 
 function processRow(rowStr, results) {
-    rowStr = rowStr.trim();
-    if (!rowStr) return;
-
-    const lastTabIdx = rowStr.lastIndexOf('\t');
-    if (lastTabIdx === -1) return;
-    
+    rowStr = rowStr.trim(); if (!rowStr) return;
+    const lastTabIdx = rowStr.lastIndexOf('\t'); if (lastTabIdx === -1) return;
     const roundStr = rowStr.substring(lastTabIdx + 1).trim().replace(/^"|"$/g, '');
     if (!/^\d+$/.test(roundStr)) return;
-
     const remain = rowStr.substring(0, lastTabIdx);
     const firstTabIdx = remain.indexOf('\t');
-    
     let urlBlock = "", query = "";
-    
     if (firstTabIdx === -1) {
-        // 🔑 终极修复：空首列判断
         const trimmedRemain = remain.trim().replace(/^"|"$/g, '');
-        if (!trimmedRemain.includes('\n') && !/^https?:\/\//i.test(trimmedRemain)) {
-            query = trimmedRemain;
-            urlBlock = "";
-        } else {
-            urlBlock = trimmedRemain;
-            query = "";
-        }
+        if (!trimmedRemain.includes('\n') && !/^https?:\/\//i.test(trimmedRemain)) { query = trimmedRemain; urlBlock = ""; }
+        else { urlBlock = trimmedRemain; query = ""; }
     } else {
         urlBlock = remain.substring(0, firstTabIdx).trim().replace(/^"|"$/g, '');
         query = remain.substring(firstTabIdx + 1).trim().replace(/^"|"$/g, '');
     }
-
-    if (urlBlock.startsWith('"') && urlBlock.endsWith('"')) {
-        urlBlock = urlBlock.slice(1, -1);
-    }
-
-    const urls = urlBlock.split(/\r?\n/)
-        .map(u => u.trim())
-        .filter(u => /^https?:\/\//i.test(u));
-
-    results.push({
-        round: parseInt(roundStr),
-        query: query || "",
-        urls: urls
-    });
+    if (urlBlock.startsWith('"') && urlBlock.endsWith('"')) urlBlock = urlBlock.slice(1, -1);
+    const urls = urlBlock.split(/\r?\n/).map(u => u.trim()).filter(u => /^https?:\/\//i.test(u));
+    results.push({ round: parseInt(roundStr), query: query || "", urls: urls });
 }
 
 function renderTable(data) {
     const tbody = document.querySelector('#resultTable tbody');
-    if (!data.length) {
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:40px;color:#ef4444;">未解析到有效数据，请确认格式正确</td></tr>';
-        return;
-    }
-
+    if (!data.length) { tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:40px;color:#ef4444;">未解析到有效数据，请确认格式正确</td></tr>'; return; }
     tbody.innerHTML = data.map(r => {
         const imgHtml = r.urls.length > 0 
-            ? r.urls.map((u, i) => `
-                <div class="img-wrapper" onclick="openLB('${u}', ${r.round}, '${escapeAttr(r.query)}')">
-                    <img src="${u}" loading="lazy" onerror="this.style.display='none'">
-                    <span class="img-label">${i+1}</span>
-                </div>
-              `).join('')
+            ? r.urls.map((u, i) => `<div class="img-wrapper" onclick="openLB('${u}', ${r.round}, '${escapeAttr(r.query)}')"><img src="${u}" loading="lazy" onerror="this.style.display='none'"><span class="img-label">${i+1}</span></div>`).join('')
             : '<span class="empty-tag">(空)</span>';
-
-        return `
-            <tr data-r="${r.round}">
-                <td class="col-round">${r.round}</td>
-                <td class="col-query">${escapeHtml(r.query)}</td>
-                <td class="img-cell">${imgHtml}</td>
-            </tr>
-        `;
+        return `<tr data-r="${r.round}"><td class="col-round">${r.round}</td><td class="col-query">${escapeHtml(r.query)}</td><td class="img-cell">${imgHtml}</td></tr>`;
     }).join('');
 }
 
@@ -712,34 +404,17 @@ function applyFilter() {
     const val = document.getElementById('filterRound').value.trim();
     const trs = document.querySelectorAll('#resultTable tbody tr');
     if (!val) { trs.forEach(t => t.style.display = ''); return; }
-
     const set = new Set();
     val.split(',').forEach(p => {
         p = p.trim();
-        if (p.includes('-')) {
-            const [a,b] = p.split('-').map(Number);
-            if(!isNaN(a) && !isNaN(b)) for(let i=a; i<=b; i++) set.add(i);
-        } else if(!isNaN(p)) set.add(Number(p));
+        if (p.includes('-')) { const [a,b] = p.split('-').map(Number); if(!isNaN(a) && !isNaN(b)) for(let i=a; i<=b; i++) set.add(i); }
+        else if(!isNaN(p)) set.add(Number(p));
     });
-
-    trs.forEach(t => {
-        const r = Number(t.dataset.r);
-        t.style.display = set.has(r) ? '' : 'none';
-    });
+    trs.forEach(t => { const r = Number(t.dataset.r); t.style.display = set.has(r) ? '' : 'none'; });
 }
 
-function escapeHtml(s) {
-    return s.replace(/[&<>"']/g, c => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-    })[c]);
-}
-function escapeAttr(s) {
-    return s.replace(/'/g, "\\'").replace(/\n/g, " ");
-}
+function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(s) { return s.replace(/'/g, "\\'").replace(/\n/g, " "); }
 function clearAll() {
     document.getElementById('excel-input').value = '';
     document.querySelector('#resultTable tbody').innerHTML = '<tr><td colspan="3" style="text-align:center;padding:40px;color:#999;">等待粘贴数据...</td></tr>';
