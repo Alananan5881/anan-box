@@ -50,14 +50,12 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(29, 78, 216, 0.2);
         }
-        /* 检测中状态 */
         .tool-btn.checking {
             pointer-events: none;
             opacity: .65;
         }
         .footer { margin-top: 30px; font-size: 12px; color: #9ca3af; }
 
-        /* ---- 内网提示弹窗 ---- */
         .anan-mask {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.4);
@@ -96,7 +94,6 @@
             <a href="image-compare.html" class="tool-btn">🖼️ 多图对比</a>
             <a href="session-compare.html" class="tool-btn">📊 Session 多轮对比</a>
 
-            <!-- ★ 需要内网的工具：用 onclick 拦截，先检测再跳转 -->
             <div class="tool-btn" onclick="checkIntranet(
                 'https://71c5a476-8000.boz.alibaba-inc.com',
                 'https://71c5a476-8000.boz.alibaba-inc.com/api/ping',
@@ -108,7 +105,6 @@
         <div class="footer">© 2026 Anan Tools</div>
     </div>
 
-    <!-- 内网不可用提示弹窗 -->
     <div class="anan-mask" id="ananMask" onclick="if(event.target===this)closeMask()">
         <div class="anan-tip-box">
             <div class="anan-tip-text">安安提示：不行哦不行哦，要使用这个小工具要连接内网哦 ₍₍ ᕕ(´◔⌓◔)ᕗ⁾⁾</div>
@@ -118,22 +114,19 @@
 
     <script>
     /**
-     * 内网检测跳转（兼容手机端）
+     * 内网检测跳转（兼容手机端 v3）
      *
-     * 修复两个手机端问题：
-     * 1. DNS 劫持/代理导致 fetch 不报错 → 改为严格校验响应体 {"ok":true}
-     * 2. 异步中 window.open 被拦截为空白页 → 同步预开窗口，检测后决定跳转或关闭
+     * 方案：不用 window.open，检测通过后用 <a> 标签模拟跳转。
+     * - 电脑端：新标签页打开
+     * - 手机端/钉钉：当前页面跳转（避免弹窗拦截问题）
+     *
+     * 防 DNS 劫持：严格校验响应体 {"ok":true}
      */
     async function checkIntranet(toolUrl, pingUrl, btn) {
         if (btn.classList.contains('checking')) return;
         btn.classList.add('checking');
-        const originalText = btn.textContent;
+        var originalText = btn.textContent;
         btn.textContent = originalText + ' ⏳';
-
-        // ★ 关键：在用户点击的同步上下文中预先打开窗口
-        // 手机浏览器要求 window.open 必须在用户手势的同步调用栈中，
-        // 否则会被当成弹窗广告拦截或打开空白页
-        var newWin = window.open('about:blank', '_blank');
 
         var isIntranet = false;
         try {
@@ -142,7 +135,7 @@
             var res = await fetch(pingUrl, { mode: 'cors', signal: ctrl.signal });
             clearTimeout(tid);
 
-            // ★ 关键：严格校验响应内容，防止 DNS 劫持/代理返回假响应
+            // 严格校验响应内容，防止 DNS 劫持/代理返回假响应
             if (res.ok) {
                 var data = await res.json();
                 isIntranet = data && data.ok === true;
@@ -151,21 +144,24 @@
             isIntranet = false;
         }
 
-        if (isIntranet) {
-            // 内网可达 → 跳转
-            if (newWin) {
-                newWin.location.href = toolUrl;
-            } else {
-                location.href = toolUrl;
-            }
-        } else {
-            // 不在内网 → 关闭预开的窗口，弹提示
-            if (newWin) newWin.close();
-            document.getElementById('ananMask').classList.add('show');
-        }
-
         btn.classList.remove('checking');
         btn.textContent = originalText;
+
+        if (isIntranet) {
+            // 内网可达 → 用 <a> 标签模拟点击跳转，兼容所有浏览器
+            var a = document.createElement('a');
+            a.href = toolUrl;
+            // 判断是否为移动端：移动端当前页跳转，电脑端新标签页
+            var isMobile = /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
+            if (!isMobile) a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } else {
+            // 不在内网 → 弹提示
+            document.getElementById('ananMask').classList.add('show');
+        }
     }
 
     function closeMask() {
