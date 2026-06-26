@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>安安的工具百宝箱</title>
+    <title>安安百宝箱</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -118,9 +118,11 @@
 
     <script>
     /**
-     * 内网检测跳转
-     * 点击时先 fetch 内网的 /api/ping（800ms 超时），
-     * 成功则跳转，失败则弹提示。
+     * 内网检测跳转（兼容手机端）
+     *
+     * 修复两个手机端问题：
+     * 1. DNS 劫持/代理导致 fetch 不报错 → 改为严格校验响应体 {"ok":true}
+     * 2. 异步中 window.open 被拦截为空白页 → 同步预开窗口，检测后决定跳转或关闭
      */
     async function checkIntranet(toolUrl, pingUrl, btn) {
         if (btn.classList.contains('checking')) return;
@@ -128,18 +130,42 @@
         const originalText = btn.textContent;
         btn.textContent = originalText + ' ⏳';
 
+        // ★ 关键：在用户点击的同步上下文中预先打开窗口
+        // 手机浏览器要求 window.open 必须在用户手势的同步调用栈中，
+        // 否则会被当成弹窗广告拦截或打开空白页
+        var newWin = window.open('about:blank', '_blank');
+
+        var isIntranet = false;
         try {
-            const ctrl = new AbortController();
-            const tid = setTimeout(() => ctrl.abort(), 800);
-            await fetch(pingUrl, { mode: 'cors', signal: ctrl.signal });
+            var ctrl = new AbortController();
+            var tid = setTimeout(function() { ctrl.abort(); }, 2000);
+            var res = await fetch(pingUrl, { mode: 'cors', signal: ctrl.signal });
             clearTimeout(tid);
-            window.open(toolUrl, '_blank');
+
+            // ★ 关键：严格校验响应内容，防止 DNS 劫持/代理返回假响应
+            if (res.ok) {
+                var data = await res.json();
+                isIntranet = data && data.ok === true;
+            }
         } catch (e) {
-            document.getElementById('ananMask').classList.add('show');
-        } finally {
-            btn.classList.remove('checking');
-            btn.textContent = originalText;
+            isIntranet = false;
         }
+
+        if (isIntranet) {
+            // 内网可达 → 跳转
+            if (newWin) {
+                newWin.location.href = toolUrl;
+            } else {
+                location.href = toolUrl;
+            }
+        } else {
+            // 不在内网 → 关闭预开的窗口，弹提示
+            if (newWin) newWin.close();
+            document.getElementById('ananMask').classList.add('show');
+        }
+
+        btn.classList.remove('checking');
+        btn.textContent = originalText;
     }
 
     function closeMask() {
