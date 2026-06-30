@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>安安小工具系列 | 文本校对</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/diff-match-patch@1.0.5/index.min.js"></script>
+    <style>
+        :root {
+            --primary: #1d4ed8;
+            --gray-100: #f8fafc;
+            --gray-200: #e5e7eb;
+            --gray-900: #111827;
+            --header-bg: #ffffff;
+            --index-bg: #fafafa;
+            --index-header-bg: #ffffff;
+            --top-bar-h: 48px;
+            --sidebar-w: 280px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--gray-100); color: var(--gray-900); line-height: 1.6;
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden; 
+        }
+
+        /* === 顶部导航栏 === */
+        .top-bar {
+            height: var(--top-bar-h); min-height: var(--top-bar-h); max-height: var(--top-bar-h);
+            background: #fff; border-bottom: 1px solid #eef1f5;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 20px; position: relative; z-index: 100; flex-shrink: 0;
+        }
+        #back-to-box {
+            display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 4px 8px;
+            color: #1a2b4a; font-size: 14px; font-weight: 600; cursor: pointer; border-radius: 4px; transition: all 0.2s ease; white-space: nowrap;
+        }
+        #back-to-box:hover { background: #f0f4f8; color: #1d4ed8; }
+        .tool-title { font-size: 18px; color: #1a2b4a; margin: 0; font-weight: 600; position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+        .header-actions { display: flex; gap: 8px; align-items: center; }
+        .btn-action { padding: 5px 12px; border: 1px solid #d0d7de; color: #555; background: #fff; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+        .btn-action:hover { border-color: var(--primary); color: var(--primary); background: #f8fbff; }
+
+        /* === 工作区布局 === */
+        .workspace { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+
+        /* 左侧配置面板 */
+        .config-sidebar {
+            width: var(--sidebar-w); min-width: var(--sidebar-w); background: #fff;
+            border-right: 1px solid var(--gray-200); display: flex; flex-direction: column;
+            overflow: hidden; flex-shrink: 0; transition: width 0.3s, min-width 0.3s, opacity 0.3s;
+        }
+        .config-sidebar.collapsed { width: 0; min-width: 0; opacity: 0; overflow: hidden; border-right: none; }
+        .sidebar-header { padding: 12px 16px; font-weight: 600; font-size: 14px; background: #f8fafc; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+        .sidebar-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+        .input-section { margin-bottom: 16px; }
+        .input-label { font-size: 12px; font-weight: 600; color: #555; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        #raw-input { width: 100%; height: 140px; padding: 10px; font-family: monospace; font-size: 12px; border: 1px solid var(--gray-200); border-radius: 6px; resize: vertical; outline: none; background: #fcfdfd; }
+        #raw-input:focus { border-color: var(--primary); }
+        .file-btn { width: 100%; padding: 8px; border: 2px dashed #d0d7de; border-radius: 6px; background: #fff; color: #666; cursor: pointer; text-align: center; font-size: 12px; transition: all 0.2s; margin-top: 8px; }
+        .file-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        .config-group { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0; }
+        .config-group:last-child { border-bottom: none; }
+        .config-option { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555; margin-bottom: 8px; }
+        .config-option input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); flex-shrink: 0; }
+        .config-option select { flex: 1; padding: 4px 8px; border: 1px solid #d0d7de; border-radius: 4px; font-size: 12px; outline: none; min-width: 0; }
+        .config-option select:focus { border-color: var(--primary); }
+
+        .col-manager-title { font-size: 12px; font-weight: 600; color: #333; margin-bottom: 8px; }
+        .col-list { display: flex; flex-direction: column; gap: 4px; }
+        .col-chip { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--gray-200); border-radius: 6px; background: #fff; font-size: 12px; cursor: grab; user-select: none; transition: all 0.15s; }
+        .col-chip:active { cursor: grabbing; }
+        .col-chip.dragging { opacity: 0.4; border-style: dashed; }
+        .col-chip.drag-over { border-color: var(--primary); background: #eff6ff; transform: translateY(2px); }
+        .col-chip-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .col-chip-del { width: 20px; height: 20px; border-radius: 50%; border: none; background: #fee2e2; color: #991b1b; font-size: 14px; cursor: pointer; padding: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.15s; line-height: 1; }
+        .col-chip-del:hover { background: #dc2626; color: #fff; }
+        .col-chip.hidden-col { opacity: 0.4; text-decoration: line-through; border-style: dashed; cursor: default; }
+        .col-chip.hidden-col .col-chip-del { background: #f3f4f6; color: #999; }
+        .col-chip.index-col { border-color: #bfdbfe; background: #eff6ff; }
+
+        /* 右侧预览区 */
+        .preview-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; padding: 8px; position: relative; }
+        .preview-toolbar { display: flex; align-items: center; gap: 8px; padding: 0 4px 8px; flex-shrink: 0; flex-wrap: wrap; }
+        .base-selector { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555; }
+        .base-selector select { padding: 4px 8px; border: 1px solid #d0d7de; border-radius: 4px; font-size: 13px; outline: none; cursor: pointer; min-width: 100px; }
+        .toggle-sidebar-btn { padding: 4px 10px; border: 1px solid #d0d7de; background: #fff; border-radius: 4px; font-size: 12px; cursor: pointer; color: #555; transition: all 0.2s; margin-left: auto; }
+        .toggle-sidebar-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        .table-wrapper { flex: 1; border-radius: 8px; box-shadow: 0 3px 15px rgba(0,0,0,0.08); background: white; overflow: auto; min-height: 0; }
+
+        /* === 表格样式 === */
+        .compare-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .compare-table th, .compare-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--gray-200); border-right: 1px solid var(--gray-200); vertical-align: top; }
+        .compare-table th:last-child, .compare-table td:last-child { border-right: none; }
+        .compare-table thead th { position: sticky; top: 0; z-index: 20; background: var(--header-bg); background-clip: padding-box; box-shadow: 0 1px 3px rgba(0,0,0,0.08); font-size: 13px; font-weight: 600; white-space: nowrap; }
+        .col-index { width: 60px; min-width: 60px; max-width: 60px; text-align: center; color: #555; font-size: 12px; background: var(--index-bg); background-clip: padding-box; position: sticky; left: 0; z-index: 30; box-shadow: 1px 0 3px rgba(0,0,0,0.06); font-weight: 600; }
+        .compare-table thead th.col-index { z-index: 40 !important; background: var(--index-header-bg); background-clip: padding-box; }
+        .compare-table th.base-col { background: #eff6ff !important; color: var(--primary); border-bottom: 2px solid var(--primary); }
+        .compare-table td.base-col { background: #fafcff; }
+        .text-col { min-width: 260px; }
+
+        .cell-container { display: flex; flex-direction: column; min-height: 70px; }
+        .cell-tabs { display: flex; border-bottom: 1px solid #f0f0f0; background: #fafafa; flex-shrink: 0; }
+        .cell-tab { padding: 4px 12px; font-size: 11px; cursor: pointer; border: none; background: none; color: #888; transition: all 0.2s; white-space: nowrap; }
+        .cell-tab.active { color: var(--primary); border-bottom: 2px solid var(--primary); background: #fff; }
+        .cell-body { padding: 10px 12px; font-size: 13px; line-height: 1.7; word-break: break-word; flex: 1; overflow-y: auto; max-height: 280px; }
+        .source-view { font-family: 'Menlo', 'Monaco', 'Courier New', monospace; font-size: 12px; white-space: pre-wrap; }
+        .diff-ins { background: #dcfce7; color: #166534; padding: 1px 2px; border-radius: 2px; }
+        .diff-del { background: #fee2e2; color: #991b1b; padding: 1px 2px; border-radius: 2px; text-decoration: line-through; }
+        
+        /* 图片预览增强 */
+        .render-view img { 
+            max-width: 100%; max-height: 200px; border-radius: 4px; margin: 4px 0; display: block; 
+            border: 1px solid var(--gray-200); cursor: zoom-in; transition: transform 0.2s, box-shadow 0.2s; 
+        }
+        .render-view img:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-color: var(--primary); }
+
+        .render-view p { margin: 4px 0; }
+        .render-view ul, .render-view ol { padding-left: 20px; margin: 4px 0; }
+        .render-view code { background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-size: 0.9em; }
+        .render-view blockquote { border-left: 3px solid var(--primary); padding-left: 10px; color: #666; margin: 4px 0; }
+        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; margin-left: 8px; }
+        .status-same { background: #dcfce7; color: #166534; }
+        .status-diff { background: #fee2e2; color: #991b1b; }
+        .status-base { background: #dbeafe; color: #1e40af; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #999; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+        .empty-state svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.3; }
+
+        /* === ✅ 灯箱样式 (Lightbox) === */
+        .lightbox {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: none; z-index: 2000;
+            justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(4px);
+        }
+        .lb-close { 
+            position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; 
+            width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+            border-radius: 50%; transition: background 0.2s; z-index: 2001;
+        }
+        .lb-close:hover { background: rgba(255,255,255,0.15); }
+        .lb-image { 
+            max-width: 90vw; max-height: 80vh; object-fit: contain; cursor: grab; 
+            user-select: none; -webkit-user-drag: none; transform-origin: center center;
+        }
+        .lb-image:active { cursor: grabbing; }
+        .lb-tools { 
+            margin-top: 20px; display: flex; align-items: center; gap: 12px; 
+            background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 24px; backdrop-filter: blur(8px);
+        }
+        .lb-btn {
+            background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px;
+            border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s;
+        }
+        .lb-btn:hover { background: rgba(255,255,255,0.35); }
+        #zoomVal { color: white; min-width: 52px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; }
+        #zoomSlider { width: 120px; height: 4px; appearance: none; background: rgba(255,255,255,0.3); border-radius: 2px; cursor: pointer; outline: none; }
+        #zoomSlider::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; border-radius: 50%; background: white; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+
+        @media (max-width: 768px) {
+            .tool-title { font-size: 15px; }
+            #back-to-box span { display: none; }
+            .workspace { flex-direction: column; }
+            .config-sidebar { width: 100% !important; min-width: 100% !important; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--gray-200); }
+            .config-sidebar.collapsed { max-height: 0; min-width: 100% !important; }
+            .preview-area { padding: 4px; }
+            .text-col { min-width: 200px; }
+            .lb-close { top: 10px; right: 10px; }
+            .lb-tools { padding: 6px 12px; gap: 8px; }
+            #zoomSlider { width: 80px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="top-bar">
+        <button id="back-to-box" onclick="location.href='index.html'" title="返回百宝箱主页">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span>百宝箱</span>
+        </button>
+        <h1 class="tool-title">📝 安安小工具系列 | 文本校对</h1>
+        <div class="header-actions">
+            <button class="btn-action" onclick="clearAll()">清空数据</button>
+        </div>
+    </div>
+
+    <div class="workspace">
+        <div class="config-sidebar" id="configSidebar">
+            <div class="sidebar-header"><span>⚙️ 数据 & 配置</span></div>
+            <div class="sidebar-body">
+                <div class="input-section">
+                    <div class="input-label">📋 数据输入</div>
+                    <textarea id="raw-input" placeholder="粘贴 Excel / TSV 数据..." oninput="onRawInputChange()"></textarea>
+                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(this.files[0])">
+                    <button class="file-btn" onclick="document.getElementById('fileInput').click()">📁 导入 Excel / CSV</button>
+                </div>
+
+                <div class="config-group">
+                    <label class="config-option">
+                        <input type="checkbox" id="chkHeaderRow" onchange="onConfigChange()">
+                        <span>首行为标题行</span>
+                    </label>
+                    <label class="config-option">
+                        <span style="white-space:nowrap;">编号列：</span>
+                        <select id="selIndexCol" onchange="onConfigChange()">
+                            <option value="-1">自动编号</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="config-group" style="border-bottom:none;">
+                    <div class="col-manager-title">📑 列管理（拖拽排序 / × 隐藏）</div>
+                    <div class="col-list" id="colList">
+                        <div style="color:#aaa;font-size:12px;padding:8px 0;">输入数据后自动显示列配置</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="preview-area">
+            <div class="preview-toolbar">
+                <div class="base-selector">
+                    <label for="baseColSelect">基准列：</label>
+                    <select id="baseColSelect" onchange="onBaseColChange()"></select>
+                </div>
+                <button class="toggle-sidebar-btn" id="toggleSidebarBtn" onclick="toggleSidebar()">◀ 收起面板</button>
+            </div>
+            <div id="contentArea" class="table-wrapper">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    <p>在左侧输入或导入数据即可实时预览</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ 灯箱组件 (精简版：仅一个旋转按钮) -->
+    <div class="lightbox" id="lightbox" onclick="if(event.target===this) closeLB()">
+        <div class="lb-close" onclick="closeLB()" title="关闭 (Esc)">&times;</div>
+        <img src="" class="lb-image" id="lbImg" draggable="false">
+        <div class="lb-tools">
+            <button class="lb-btn" onclick="rotateLB(90)" title="顺时针旋转 90° (R)">↻</button>
+            <span id="zoomVal">100%</span>
+            <input type="range" id="zoomSlider" min="0.1" max="8" step="0.1" value="1" title="滚轮/+-键缩放">
+        </div>
+    </div>
+
+<script>
+// ==================== 🔒 禁用图片原生拖拽 ====================
+document.addEventListener('dragstart', e => {
+    if (e.target.tagName === 'IMG' && (e.target.closest('.render-view') || e.target.closest('.lightbox'))) {
+        e.preventDefault(); e.stopPropagation();
+    }
+}, true);
+
+// ==================== 💡 灯箱逻辑 ====================
+let lbScale = 1, lbRot = 0, lbX = 0, lbY = 0;
+let lbDragging = false, lbStartX = 0, lbStartY = 0;
+const lbEl = document.getElementById('lightbox');
+const lbImg = document.getElementById('lbImg');
+const zoomVal = document.getElementById('zoomVal');
+const zoomSlider = document.getElementById('zoomSlider');
+
+function openLB(url) {
+    lbImg.src = url;
+    lbScale = 1; lbRot = 0; lbX = 0; lbY = 0;
+    zoomSlider.value = '1'; zoomVal.textContent = '100%';
+    updateLBTransform();
+    lbEl.style.display = 'flex';
+}
+
+function closeLB() {
+    lbEl.style.display = 'none';
+    lbImg.src = ''; lbDragging = false;
+}
+
+function rotateLB(deg) {
+    lbRot = (lbRot + deg + 360) % 360;
+    updateLBTransform();
+}
+
+function updateLBTransform() {
+    lbImg.style.transform = `translate(${lbX}px, ${lbY}px) rotate(${lbRot}deg) scale(${lbScale})`;
+    lbImg.style.transition = lbDragging ? 'none' : 'transform 0.15s ease-out';
+}
+
+zoomSlider.oninput = () => {
+    lbScale = parseFloat(zoomSlider.value);
+    updateLBTransform();
+    zoomVal.textContent = Math.round(lbScale * 100) + '%';
+};
+
+lbEl.addEventListener('wheel', e => {
+    if (lbEl.style.display !== 'flex') return;
+    if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.15 : 0.15;
+        lbScale = Math.max(0.1, Math.min(8, lbScale + delta));
+        zoomSlider.value = lbScale.toFixed(1);
+        zoomVal.textContent = Math.round(lbScale * 100) + '%';
+        updateLBTransform();
+    } else {
+        e.preventDefault();
+        lbX -= e.deltaX * 0.8; lbY -= e.deltaY * 0.8;
+        updateLBTransform();
+    }
+}, { passive: false });
+
+lbImg.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault(); lbDragging = true;
+    lbStartX = e.clientX - lbX; lbStartY = e.clientY - lbY;
+    lbImg.style.cursor = 'grabbing'; updateLBTransform();
+});
+document.addEventListener('mousemove', e => {
+    if (!lbDragging) return;
+    lbX = e.clientX - lbStartX; lbY = e.clientY - lbStartY;
+    updateLBTransform();
+});
+const stopLBDrag = () => { if (lbDragging) { lbDragging = false; lbImg.style.cursor = 'grab'; updateLBTransform(); } };
+document.addEventListener('mouseup', stopLBDrag);
+document.addEventListener('mouseleave', stopLBDrag);
+
+document.addEventListener('keydown', e => {
+    if (lbEl.style.display !== 'flex') return;
+    if (e.key === 'Escape') closeLB();
+    if (e.key === '+' || e.key === '=') { e.preventDefault(); lbScale = Math.min(8, lbScale + 0.1); zoomSlider.value = lbScale.toFixed(1); zoomVal.textContent = Math.round(lbScale * 100) + '%'; updateLBTransform(); }
+    if (e.key === '-' || e.key === '_') { e.preventDefault(); lbScale = Math.max(0.1, lbScale - 0.1); zoomSlider.value = lbScale.toFixed(1); zoomVal.textContent = Math.round(lbScale * 100) + '%'; updateLBTransform(); }
+    if (e.key === 'r' || e.key === 'R') { e.preventDefault(); rotateLB(90); }
+});
+
+// ==================== 全局状态 ====================
+let rawRows = [], headerLabels = [], colOrder = [], hiddenCols = new Set();
+let indexColOrig = -1, currentBaseCol = 0, isHeaderRow = false, rafPending = false;
+
+function getVisibleDataCols() { return colOrder.filter(i => i !== indexColOrig); }
+
+function scheduleRefresh() {
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(() => { rafPending = false; refreshAll(); });
+}
+
+function onRawInputChange() {
+    const raw = document.getElementById('raw-input').value.trim();
+    if (!raw) { rawRows = []; renderEmptyState(); renderColList(); updateSelectors(); return; }
+    rawRows = parseTSV(raw);
+    initColState();
+    scheduleRefresh();
+}
+
+function onConfigChange() {
+    isHeaderRow = document.getElementById('chkHeaderRow').checked;
+    indexColOrig = parseInt(document.getElementById('selIndexCol').value, 10);
+    updateHeaderLabels();
+    renderColList();
+    scheduleRefresh();
+}
+
+function onBaseColChange() {
+    currentBaseCol = parseInt(document.getElementById('baseColSelect').value, 10);
+    renderTable();
+}
+
+function refreshAll() { updateHeaderLabels(); updateSelectors(); renderColList(); renderTable(); }
+
+function initColState() {
+    const numCols = rawRows.length > 0 ? Math.max(...rawRows.map(r => r.length)) : 0;
+    const newOrder = [];
+    for (let i = 0; i < numCols; i++) { if (!hiddenCols.has(i)) newOrder.push(i); }
+    if (colOrder.length > 0) {
+        const validOld = colOrder.filter(i => i < numCols && !hiddenCols.has(i));
+        const addedNew = newOrder.filter(i => !validOld.includes(i));
+        colOrder = [...validOld, ...addedNew];
+    } else { colOrder = newOrder; }
+    hiddenCols = new Set([...hiddenCols].filter(i => i < numCols));
+    isHeaderRow = document.getElementById('chkHeaderRow').checked;
+    indexColOrig = parseInt(document.getElementById('selIndexCol').value, 10);
+    if (indexColOrig >= numCols) { indexColOrig = -1; document.getElementById('selIndexCol').value = '-1'; }
+}
+
+function updateHeaderLabels() {
+    const numCols = rawRows.length > 0 ? Math.max(...rawRows.map(r => r.length)) : 0;
+    headerLabels = [];
+    for (let i = 0; i < numCols; i++) {
+        headerLabels.push(isHeaderRow && rawRows.length > 0 ? (rawRows[0][i] || `列 ${i+1}`) : `文本 ${String.fromCharCode(65+i)}`);
+    }
+}
+
+function updateSelectors() {
+    const idxSel = document.getElementById('selIndexCol');
+    const prevIdx = idxSel.value;
+    idxSel.innerHTML = '<option value="-1">自动编号</option>';
+    for (let i = 0; i < headerLabels.length; i++) {
+        const opt = document.createElement('option'); opt.value = i; opt.textContent = headerLabels[i]; idxSel.appendChild(opt);
+    }
+    idxSel.value = (parseInt(prevIdx,10) >= 0 && parseInt(prevIdx,10) < headerLabels.length) ? prevIdx : '-1';
+    indexColOrig = parseInt(idxSel.value, 10);
+
+    const baseSel = document.getElementById('baseColSelect');
+    const prevBase = baseSel.value;
+    baseSel.innerHTML = '';
+    const dataCols = getVisibleDataCols();
+    dataCols.forEach((origIdx, visIdx) => {
+        const opt = document.createElement('option'); opt.value = visIdx; opt.textContent = headerLabels[origIdx]; baseSel.appendChild(opt);
+    });
+    const nb = parseInt(prevBase, 10);
+    baseSel.value = (nb >= 0 && nb < dataCols.length) ? nb : '0';
+    currentBaseCol = parseInt(baseSel.value, 10);
+}
+
+function toggleColVisibility(origIdx) {
+    if (hiddenCols.has(origIdx)) { hiddenCols.delete(origIdx); if (!colOrder.includes(origIdx)) colOrder.push(origIdx); }
+    else { hiddenCols.add(origIdx); colOrder = colOrder.filter(i => i !== origIdx); }
+    if (currentBaseCol >= getVisibleDataCols().length) currentBaseCol = Math.max(0, getVisibleDataCols().length - 1);
+    scheduleRefresh();
+}
+
+let dragSrcIdx = null;
+function onChipDragStart(e, oi) { dragSrcIdx = oi; e.target.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
+function onChipDragEnd(e) { e.target.classList.remove('dragging'); document.querySelectorAll('.col-chip').forEach(c => c.classList.remove('drag-over')); dragSrcIdx = null; }
+function onChipDragOver(e, oi) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragSrcIdx !== null && dragSrcIdx !== oi) e.currentTarget.classList.add('drag-over'); }
+function onChipDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function onChipDrop(e, toi) {
+    e.preventDefault(); e.currentTarget.classList.remove('drag-over');
+    if (dragSrcIdx === null || dragSrcIdx === toi) return;
+    const sp = colOrder.indexOf(dragSrcIdx), tp = colOrder.indexOf(toi);
+    if (sp === -1 || tp === -1) return;
+    colOrder.splice(sp, 1); colOrder.splice(tp, 0, dragSrcIdx);
+    scheduleRefresh();
+}
+
+function renderColList() {
+    const container = document.getElementById('colList');
+    if (headerLabels.length === 0) { container.innerHTML = '<div style="color:#aaa;font-size:12px;padding:8px 0;">输入数据后自动显示列配置</div>'; return; }
+    container.innerHTML = '';
+    const allIndices = Array.from({length: headerLabels.length}, (_,i) => i);
+    const visibleSet = new Set(colOrder);
+    const hiddenArr = allIndices.filter(i => !visibleSet.has(i));
+    [...colOrder, ...hiddenArr].forEach(origIdx => {
+        const isHidden = hiddenCols.has(origIdx);
+        const isIndexCol = origIdx === indexColOrig;
+        const label = isIndexCol ? `🔢 ${headerLabels[origIdx]}` : headerLabels[origIdx];
+        const chip = document.createElement('div');
+        chip.className = `col-chip${isHidden?' hidden-col':''}${isIndexCol?' index-col':''}`;
+        chip.draggable = !isHidden;
+        chip.innerHTML = `<span class="col-chip-name" title="${escapeAttr(headerLabels[origIdx])}">${escapeHtml(label)}</span><button class="col-chip-del" title="${isHidden?'恢复':'隐藏'}">${isHidden?'+':'×'}</button>`;
+        chip.querySelector('.col-chip-del').onclick = (e) => { e.stopPropagation(); toggleColVisibility(origIdx); };
+        if (!isHidden) {
+            chip.addEventListener('dragstart', e => onChipDragStart(e, origIdx));
+            chip.addEventListener('dragend', onChipDragEnd);
+            chip.addEventListener('dragover', e => onChipDragOver(e, origIdx));
+            chip.addEventListener('dragleave', onChipDragLeave);
+            chip.addEventListener('drop', e => onChipDrop(e, origIdx));
+        }
+        container.appendChild(chip);
+    });
+}
+
+function toggleSidebar() {
+    const sb = document.getElementById('configSidebar'), btn = document.getElementById('toggleSidebarBtn');
+    sb.classList.toggle('collapsed');
+    btn.textContent = sb.classList.contains('collapsed') ? '▶ 展开面板' : '◀ 收起面板';
+}
+
+function getDataRows() { return isHeaderRow ? rawRows.slice(1) : rawRows; }
+function renderEmptyState() {
+    document.getElementById('contentArea').innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p>在左侧输入或导入数据即可实时预览</p></div>`;
+}
+
+function renderTable() {
+    const dataRows = getDataRows();
+    const dataCols = getVisibleDataCols();
+    if (!dataRows.length || dataCols.length === 0) { renderEmptyState(); return; }
+
+    const baseOrigIdx = dataCols[currentBaseCol];
+    let tableHtml = `<table class="compare-table"><thead><tr>`;
+    const indexLabel = indexColOrig >= 0 ? headerLabels[indexColOrig] : '#';
+    tableHtml += `<th class="col-index">${escapeHtml(indexLabel)}</th>`;
+    dataCols.forEach((origIdx, visIdx) => {
+        const baseClass = visIdx === currentBaseCol ? ' base-col' : '';
+        const baseTag = visIdx === currentBaseCol ? ' 🎯' : '';
+        tableHtml += `<th class="text-col${baseClass}">${escapeHtml(headerLabels[origIdx])}${baseTag}</th>`;
+    });
+    tableHtml += `</tr></thead><tbody>`;
+
+    dataRows.forEach((row, r) => {
+        let indexContent = indexColOrig >= 0 ? escapeHtml(row[indexColOrig] || '') : `<span style="color:#888;font-size:12px">${r + 1}</span>`;
+        const baseText = row[baseOrigIdx] || '';
+        const baseType = detectType(baseText);
+        const hasComplex = dataCols.some(oi => ['latex','markdown','image','subscript'].includes(detectType(row[oi] || '')));
+
+        tableHtml += `<tr><td class="col-index">${indexContent}</td>`;
+        dataCols.forEach((origIdx, visIdx) => {
+            const text = row[origIdx] || '';
+            const type = detectType(text);
+            const isBase = visIdx === currentBaseCol;
+            const isSame = text === baseText;
+            const diffs = (!isBase && !isSame && type === 'plain' && baseType === 'plain') ? computeDiff(baseText, text) : null;
+
+            let statusBadge = isBase ? '<span class="status-badge status-base">基准</span>' : isSame ? '<span class="status-badge status-same">一致</span>' : '<span class="status-badge status-diff">差异</span>';
+            let sourceHtml = isBase ? escapeHtml(text) : diffs ? renderDiffSource(text, diffs, false) : escapeHtml(text);
+            const renderedHtml = renderContent(text, type);
+            const cellId = `cell-${r}-${visIdx}`;
+            const defaultTab = hasComplex ? 'render' : 'source';
+            const tdClass = isBase ? ' base-col' : '';
+
+            tableHtml += `<td class="text-col${tdClass}"><div class="cell-container">
+                <div class="cell-tabs">
+                    <button class="cell-tab ${defaultTab==='source'?'active':''}" onclick="switchCellTab('${cellId}','source',this)">源码${statusBadge}</button>
+                    <button class="cell-tab ${defaultTab==='render'?'active':''}" onclick="switchCellTab('${cellId}','render',this)">预览</button>
+                </div>
+                <div id="${cellId}-source" class="cell-body source-view" style="display:${defaultTab==='source'?'block':'none'}">${sourceHtml}</div>
+                <div id="${cellId}-render" class="cell-body render-view" style="display:${defaultTab==='render'?'block':'none'}">${renderedHtml}</div>
+            </div></td>`;
+        });
+        tableHtml += `</tr>`;
+    });
+    tableHtml += `</tbody></table>`;
+    document.getElementById('contentArea').innerHTML = tableHtml;
+    requestAnimationFrame(() => { document.querySelectorAll('.render-view').forEach(el => doKaTeX(el)); });
+}
+
+// ==================== 工具函数 ====================
+function cleanCellText(text) {
+    if (!text) return '';
+    let s = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/^\s+|\s+$/g, '');
+    if (!s) return '';
+    return s.split('\n').filter(l => l.trim()).join('\n').replace(/^\n+|\n+$/g, '');
+}
+function parseTSV(text) {
+    const rows = []; let row = [], cell = '', inQ = false;
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i], n = text[i+1];
+        if (inQ) { if (c==='"'&&n==='"') { cell+='"'; i++; } else if (c==='"') inQ=false; else cell+=c; }
+        else { if (c==='"') inQ=true; else if (c==='\t') { row.push(cell); cell=''; } else if (c==='\n'||c==='\r') { if (c==='\r'&&n==='\n') i++; row.push(cell); cell=''; if (row.some(x=>x!=='')) rows.push(row); row=[]; } else cell+=c; }
+    }
+    row.push(cell); if (row.some(x=>x!=='')) rows.push(row);
+    return rows.map(r => r.map(c => cleanCellText(c)));
+}
+function handleFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+            document.getElementById('raw-input').value = data.map(r => r.join('\t')).join('\n');
+            onRawInputChange();
+        } catch (err) { alert('文件解析失败: ' + err.message); }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+const URL_RE = /^https?:\/\/[\w\-._~:/?#\[\]@!$&'()*+,;=%]+$/i;
+const LATEX_RE = /\$\$[\s\S]*?\$\$|\$[^$\n]+?\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]|\\[a-zA-Z]+\{/;
+const MD_RE = /[*_~`#>\-\[\]()!|]/;
+const SUBSCRIPT_RE = /[\w\d\)\]\}][\^_][\w\d\(]/;
+function detectType(text) {
+    if (!text) return 'empty'; const t = text.trim();
+    if (URL_RE.test(t)) return 'image'; if (LATEX_RE.test(t)) return 'latex';
+    if (SUBSCRIPT_RE.test(t)) return 'subscript'; if (MD_RE.test(t)) return 'markdown'; return 'plain';
+}
+function renderSubscript(text) {
+    if (!text || !SUBSCRIPT_RE.test(text)) return null;
+    let l = text.replace(/([A-Za-z])_(\d+)/g,'\\mathrm{$1}_{$2}').replace(/\b(log|ln|lg|sin|cos|tan|cot|sec|csc|lim|max|min|sup|inf|det|dim|ker|gcd)\s*_\s*([a-zA-Z0-9]+)/gi,'\\$1_{$2}').replace(/\b(log|ln|lg|sin|cos|tan|cot|sec|csc|lim|max|min|sup|inf|det|dim|ker|gcd)\s*\^\s*([a-zA-Z0-9]+)/gi,'\\$1^{$2}').replace(/([a-zA-Z0-9])\s*_\s*([a-zA-Z0-9]+)/g,'$1_{$2}').replace(/(\([^\)]+\))\s*\^\s*([a-zA-Z0-9]+)/g,'$1^{$2}').replace(/([a-zA-Z0-9])\s*\^\s*([a-zA-Z0-9]+)/g,'$1^{$2}');
+    if (!l.startsWith('$')) l=`$${l}$`;
+    try { const d=document.createElement('div'); d.textContent=l; if(typeof renderMathInElement==='function') renderMathInElement(d,{delimiters:[{left:'$',right:'$',display:false}],throwOnError:true}); return l; } catch(e) { return null; }
+}
+
+function renderContent(text, type) {
+    if (!text) return '<span style="color:#ccc;font-style:italic;">(空)</span>';
+    if (type==='image') {
+        const safeUrl = escapeAttr(text);
+        return `<img src="${safeUrl}" loading="lazy" onclick="openLB('${safeUrl}')" onerror="this.outerHTML='<span style=color:#ef4444>⚠️ 图片加载失败</span>'"/>`;
+    }
+    if (type==='subscript') { const lr=renderSubscript(text); if(lr) return escapeHtml(lr); }
+    let h=escapeHtml(text);
+    h=h.replace(/^### (.+)$/gm,'<h4>$1</h4>').replace(/^## (.+)$/gm,'<h3>$1</h3>').replace(/^# (.+)$/gm,'<h2>$1</h2>');
+    h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/~~(.+?)~~/g,'<del>$1</del>').replace(/`(.+?)`/g,'<code>$1</code>');
+    h=h.replace(/^\> (.+)$/gm,'<blockquote>$1</blockquote>').replace(/^\- (.+)$/gm,'<li>$1</li>').replace(/(<li>.*<\/li>)/s,'<ul>$1</ul>');
+    // 为 Markdown 中的图片也绑定点击事件
+    h = h.replace(/<img\s+([^>]*)src="([^"]*)"([^>]*)>/gi, (match, pre, src, post) => {
+        return `<img ${pre}src="${src}"${post} onclick="openLB('${escapeAttr(src)}')" style="cursor:zoom-in">`;
+    });
+    return h;
+}
+
+function doKaTeX(el) { if(typeof renderMathInElement!=='function') return; try{renderMathInElement(el,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}],throwOnError:false,trust:true});}catch(e){} }
+const dmp = new diff_match_patch();
+function computeDiff(a,b) { if(a===b) return null; const d=dmp.diff_main(a,b); dmp.diff_cleanupSemantic(d); return d; }
+function renderDiffSource(text, diffs, isBase) {
+    if(!diffs) return escapeHtml(text); let h='';
+    for(const[op,data] of diffs){const e=escapeHtml(data); if(op===0)h+=e; else if(op===1&&!isBase)h+=`<span class="diff-ins">${e}</span>`; else if(op===-1&&isBase)h+=`<span class="diff-del">${e}</span>`;} return h;
+}
+function switchCellTab(id,tab,btn) {
+    const p=btn.closest('.cell-container'); p.querySelectorAll('.cell-tab').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+    p.querySelector(`#${id}-source`).style.display=tab==='source'?'block':'none'; p.querySelector(`#${id}-render`).style.display=tab==='render'?'block':'none';
+    if(tab==='render') requestAnimationFrame(()=>doKaTeX(p.querySelector(`#${id}-render`)));
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(s) { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+function clearAll() {
+    document.getElementById('raw-input').value=''; document.getElementById('fileInput').value='';
+    rawRows=[]; headerLabels=[]; colOrder=[]; hiddenCols.clear(); indexColOrig=-1; currentBaseCol=0; isHeaderRow=false;
+    document.getElementById('chkHeaderRow').checked=false; document.getElementById('selIndexCol').value='-1';
+    renderEmptyState(); renderColList(); updateSelectors();
+}
+</script>
+</body>
+</html>
