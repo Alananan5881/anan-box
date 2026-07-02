@@ -486,20 +486,38 @@ function toggleSidebar(){const sb=document.getElementById('configSidebar'),btn=d
 function getDataRows(){return isHeaderRow?rawRows.slice(1):rawRows;}
 function renderEmptyState(){document.getElementById('contentArea').innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p>在左侧输入或导入数据即可实时预览</p></div>`;}
 
-// ==================== 🔧 FIX: 统一混合渲染管线 ====================
+// ==================== 🔧 FIX: 统一混合渲染管线 + 裸公式支持 ====================
 
 /**
  * 清理业务占位符，防止干扰 Markdown 解析
  */
 function cleanBusinessPlaceholders(text) {
     if (!text) return text;
-    // 移除 [[xxx]] 和 {{xxx}} 类型的业务标记
     return text.replace(/\[\[[\w_]+\]\]/g, '').replace(/\{\{[\w_]+\(.*?\)\}\}/g, '');
 }
 
 /**
+ * 🔧 FIX: 检测并自动包裹裸 LaTeX
+ * 当文本包含 LaTeX 命令但没有被 $...$ 等定界符包裹时，自动添加 $ 定界符
+ * 关键：必须在"保护已定界LaTeX"之后执行，避免重复包裹
+ */
+function wrapBareLatex(text) {
+    if (!text) return text;
+    
+    // 如果已经包含定界符，说明不是裸公式，跳过
+    if (/\$|\\\(|\\\[/.test(text)) return text;
+    
+    // 检测是否包含 LaTeX 命令（\command 或 \command{...}）
+    if (/\\[a-zA-Z]+/.test(text)) {
+        return '$' + text + '$';
+    }
+    
+    return text;
+}
+
+/**
  * 核心：Markdown + LaTeX 混合渲染
- * 策略：先保护 LaTeX -> 再解析 Markdown -> 再还原 LaTeX -> 最后 KaTeX 渲染
+ * 策略：清理占位符 → 保护已定界LaTeX → 包裹裸LaTeX → Markdown解析 → 还原LaTeX
  */
 function renderMixedContent(text) {
     if (!text || !text.trim()) return '<span style="color:#ccc;font-style:italic;">(空)</span>';
@@ -507,9 +525,8 @@ function renderMixedContent(text) {
     // Step 0: 清理业务占位符
     let cleaned = cleanBusinessPlaceholders(text);
     
-    // Step 1: 提取并保护所有 LaTeX 块
+    // Step 1: 提取并保护所有已定界的 LaTeX 块
     const latexStore = [];
-    // 匹配顺序很重要：先匹配 $$...$$ 和 \[...\]（display），再匹配 $...$ 和 \(...\)（inline）
     const protectedText = cleaned.replace(
         /(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[^$\n]+?\$|\\\([\s\S]*?\\\))/g,
         (match) => {
@@ -518,15 +535,19 @@ function renderMixedContent(text) {
         }
     );
     
-    // Step 2: Markdown 解析（此时 LaTeX 已被安全替换为占位符）
+    // 🔧 FIX Step 2: 对剩余文本中的裸 LaTeX 自动包裹 $
+    // 此时已定界的 LaTeX 已被替换为 %%LATEX_BLOCK_N%%，不会被误判
+    const wrappedText = wrapBareLatex(protectedText);
+    
+    // Step 3: Markdown 解析
     let html = '';
     try {
-        html = marked.parse(protectedText);
+        html = marked.parse(wrappedText);
     } catch (e) {
-        html = `<p>${escapeHtml(protectedText)}</p>`;
+        html = `<p>${escapeHtml(wrappedText)}</p>`;
     }
     
-    // Step 3: 还原 LaTeX 占位符
+    // Step 4: 还原 LaTeX 占位符
     html = html.replace(/%%LATEX_BLOCK_(\d+)%%/g, (_, idx) => {
         return latexStore[parseInt(idx)] || '';
     });
@@ -535,21 +556,20 @@ function renderMixedContent(text) {
 }
 
 /**
- * 判断是否为纯图片内容（不含其他有意义文本）
+ * 判断是否为纯图片内容
  */
 function isPureImageContent(text) {
     if (!text) return false;
     const t = text.trim();
     const urls = extractImageUrls(t);
     if (urls.length === 0) return false;
-    // 移除所有图片引用和 URL 后，检查是否还有有意义的文本
     const remaining = t
         .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
         .split(/[\n\r,;]+/)
         .map(s => s.trim())
         .filter(s => s && !URL_RE.test(s))
         .join('');
-    return remaining.length < 5; // 容差：允许少量残留字符
+    return remaining.length < 5;
 }
 
 const URL_RE = /^https?:\/\/[\w\-._~:/?#\[\]@!$&'()*+,;=%]+$/i;
@@ -576,30 +596,24 @@ function renderImageGrid(text) {
 
 /**
  * 统一内容渲染入口
- * 🔧 FIX: 不再区分 markdown/latex/plain/subscript，统一走混合渲染管线
  */
 function renderContent(text, type) {
     if (!text || !text.trim()) return '<span style="color:#ccc;font-style:italic;">(空)</span>';
-    
-    // 纯图片内容单独处理
     if (type === 'image' || isPureImageContent(text)) {
         return renderImageGrid(text);
     }
-    
-    // 🔧 FIX: 所有内容统一走 Markdown + LaTeX 混合渲染
     return renderMixedContent(text);
 }
 
 /**
  * 简化后的内容类型检测
- * 🔧 FIX: 仅区分 image vs rich-text，不再细分 markdown/latex/plain
  */
 function detectContentType(text) {
     if (!text) return 'empty';
     const t = text.trim();
     if (!t) return 'empty';
     if (isPureImageContent(t)) return 'image';
-    return 'rich'; // 统一标记为富文本，由 renderContent 内部处理混合渲染
+    return 'rich';
 }
 
 // ==================== KaTeX 配置 ====================
@@ -665,7 +679,6 @@ function renderTable() {
             const isBase = visIdx === currentBaseCol;
             const isSame = originalText === baseText;
 
-            // 🔧 FIX: 仅纯文本间才做 Diff，避免标签断裂
             const safeToDiff = type !== 'rich' && type !== 'image';
             const diffs = (!isBase && !isSame && safeToDiff) ? computeDiff(baseText, originalText) : null;
 
