@@ -486,29 +486,50 @@ function toggleSidebar(){const sb=document.getElementById('configSidebar'),btn=d
 function getDataRows(){return isHeaderRow?rawRows.slice(1):rawRows;}
 function renderEmptyState(){document.getElementById('contentArea').innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p>在左侧输入或导入数据即可实时预览</p></div>`;}
 
-// ==================== 🔧 FIX: 统一混合渲染管线 + 裸公式支持 ====================
+// ==================== 🔧 FINAL FINAL FIX: 强制列表内公式换行 ====================
 
 /**
- * 清理业务占位符，防止干扰 Markdown 解析
+ * 1. 修复缩进：全角空格 -> &nbsp;
+ * 2. 清理业务占位符
+ * 3. 【关键】强制在列表项后的 LaTeX 公式前插入换行符 (\n)
  */
-function cleanBusinessPlaceholders(text) {
+function preprocessTextForRendering(text) {
     if (!text) return text;
-    return text.replace(/\[\[[\w_]+\]\]/g, '').replace(/\{\{[\w_]+\(.*?\)\}\}/g, '');
+    
+    // Step 1: 全角空格 -> &nbsp;
+    let processed = text.replace(/\u3000/g, '&nbsp;');
+    
+    // Step 2: 清理业务占位符
+    processed = processed.replace(/\[\[[\w_]+\]\]/g, '').replace(/\{\{[\w_]+\(.*?\)\}\}/g, '');
+    
+    // Step 3: 【核心修复】在列表项后的 LaTeX 公式前插入换行
+    // 匹配：以 "- ", "* ", "1. ", "2. " 等开头，后跟 $...$ 或 \begin{...} 的模式
+    // 在公式前插入 \n，使其成为新段落
+    processed = processed.replace(
+        /(^|\n)([-*]|\d+\.)\s+((?:\$[^\$]*\$|\\\[[^\]]*\\\]|\\begin\{[^\}]+\}|\\\[.*?\\\]))/gm,
+        '$1$2\n$3'
+    );
+    
+    // Step 4: 再次处理，防止多级嵌套（如 - $...$ $...$）
+    processed = processed.replace(
+        /(^|\n)([-*]|\d+\.)\s+(\$[^\$]*\$)/gm,
+        '$1$2\n$3'
+    );
+    
+    return processed;
 }
 
 /**
- * 🔧 FIX: 检测并自动包裹裸 LaTeX
- * 当文本包含 LaTeX 命令但没有被 $...$ 等定界符包裹时，自动添加 $ 定界符
- * 关键：必须在"保护已定界LaTeX"之后执行，避免重复包裹
+ * 检测并包裹裸 LaTeX（含 \begin{...} 和 \command）
  */
 function wrapBareLatex(text) {
     if (!text) return text;
     
-    // 如果已经包含定界符，说明不是裸公式，跳过
+    // 如果已经包含定界符，跳过
     if (/\$|\\\(|\\\[/.test(text)) return text;
     
-    // 检测是否包含 LaTeX 命令（\command 或 \command{...}）
-    if (/\\[a-zA-Z]+/.test(text)) {
+    // 检测 \begin{...} 或 \end{...} 或 \command
+    if (/\\begin\{[^}]+\}|\\end\{[^}]+\}|\\[a-zA-Z]+/.test(text)) {
         return '$' + text + '$';
     }
     
@@ -516,16 +537,15 @@ function wrapBareLatex(text) {
 }
 
 /**
- * 核心：Markdown + LaTeX 混合渲染
- * 策略：清理占位符 → 保护已定界LaTeX → 包裹裸LaTeX → Markdown解析 → 还原LaTeX
+ * 核心渲染函数
  */
 function renderMixedContent(text) {
     if (!text || !text.trim()) return '<span style="color:#ccc;font-style:italic;">(空)</span>';
     
-    // Step 0: 清理业务占位符
-    let cleaned = cleanBusinessPlaceholders(text);
+    // Step 0: 预处理（修复缩进 + 清理占位符 + 强制列表换行）
+    let cleaned = preprocessTextForRendering(text);
     
-    // Step 1: 提取并保护所有已定界的 LaTeX 块
+    // Step 1: 保护已定界的 LaTeX
     const latexStore = [];
     const protectedText = cleaned.replace(
         /(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[^$\n]+?\$|\\\([\s\S]*?\\\))/g,
@@ -535,19 +555,25 @@ function renderMixedContent(text) {
         }
     );
     
-    // 🔧 FIX Step 2: 对剩余文本中的裸 LaTeX 自动包裹 $
-    // 此时已定界的 LaTeX 已被替换为 %%LATEX_BLOCK_N%%，不会被误判
+    // Step 2: 包裹裸 LaTeX
     const wrappedText = wrapBareLatex(protectedText);
     
-    // Step 3: Markdown 解析
+    // Step 3: 使用 marked 解析
     let html = '';
     try {
+        marked.setOptions({
+            pedantic: false,
+            gfm: true,
+            breaks: true,
+            headerIds: false,
+            sanitize: false
+        });
         html = marked.parse(wrappedText);
     } catch (e) {
         html = `<p>${escapeHtml(wrappedText)}</p>`;
     }
     
-    // Step 4: 还原 LaTeX 占位符
+    // Step 4: 还原 LaTeX
     html = html.replace(/%%LATEX_BLOCK_(\d+)%%/g, (_, idx) => {
         return latexStore[parseInt(idx)] || '';
     });
@@ -556,20 +582,14 @@ function renderMixedContent(text) {
 }
 
 /**
- * 判断是否为纯图片内容
+ * 内容类型检测
  */
-function isPureImageContent(text) {
-    if (!text) return false;
+function detectContentType(text) {
+    if (!text) return 'empty';
     const t = text.trim();
-    const urls = extractImageUrls(t);
-    if (urls.length === 0) return false;
-    const remaining = t
-        .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
-        .split(/[\n\r,;]+/)
-        .map(s => s.trim())
-        .filter(s => s && !URL_RE.test(s))
-        .join('');
-    return remaining.length < 5;
+    if (!t) return 'empty';
+    if (isPureImageContent(t)) return 'image';
+    return 'rich';
 }
 
 const URL_RE = /^https?:\/\/[\w\-._~:/?#\[\]@!$&'()*+,;=%]+$/i;
@@ -588,32 +608,32 @@ function extractImageUrls(text) {
     return urls;
 }
 
+function isPureImageContent(text) {
+    if (!text) return false;
+    const t = text.trim();
+    const urls = extractImageUrls(t);
+    if (urls.length === 0) return false;
+    const remaining = t
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+        .split(/[\n\r,;]+/)
+        .map(s => s.trim())
+        .filter(s => s && !URL_RE.test(s))
+        .join('');
+    return remaining.length < 5;
+}
+
 function renderImageGrid(text) {
     const urls = extractImageUrls(text);
     if (urls.length === 0) return '<span style="color:#ccc;font-style:italic;">(无有效图片)</span>';
     return `<div class="img-grid">${urls.map((u, i) => `<div class="img-wrapper" data-img-url="${escapeAttr(u)}"><img src="${escapeAttr(u)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=img-error>⚠️ 加载失败</div>'"><span class="img-label">${i + 1}</span></div>`).join('')}</div>`;
 }
 
-/**
- * 统一内容渲染入口
- */
 function renderContent(text, type) {
     if (!text || !text.trim()) return '<span style="color:#ccc;font-style:italic;">(空)</span>';
     if (type === 'image' || isPureImageContent(text)) {
         return renderImageGrid(text);
     }
     return renderMixedContent(text);
-}
-
-/**
- * 简化后的内容类型检测
- */
-function detectContentType(text) {
-    if (!text) return 'empty';
-    const t = text.trim();
-    if (!t) return 'empty';
-    if (isPureImageContent(t)) return 'image';
-    return 'rich';
 }
 
 // ==================== KaTeX 配置 ====================
