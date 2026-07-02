@@ -158,7 +158,6 @@
         .cell-tab { padding: 4px 12px; font-size: 11px; cursor: pointer; border: none; background: none; color: #888; transition: all 0.2s; white-space: nowrap; }
         .cell-tab.active { color: var(--primary); border-bottom: 2px solid var(--primary); background: #fff; }
         
-        /* ✅ 核心修复：限制高度 + 启用垂直滚动 */
         .cell-body { 
             padding: 10px 12px; 
             font-size: 13px; 
@@ -171,7 +170,6 @@
             -webkit-overflow-scrolling: touch;
         }
         
-        /* 滚动条美化 */
         .cell-body::-webkit-scrollbar { width: 6px; }
         .cell-body::-webkit-scrollbar-track { background: #f1f1f1; }
         .cell-body::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
@@ -278,13 +276,13 @@
                 <div class="input-section">
                     <div class="input-label">📋 数据输入</div>
                     <div class="input-hint">💡 含换行或多图的单元格推荐使用「导入」功能。</div>
-                    <textarea id="raw-input" placeholder="粘贴 Excel / TSV 数据..." oninput="onRawInputChange()"></textarea>
-                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(this.files[0])">
+                    <textarea id="raw-input" placeholder="粘贴 Excel / TSV 数据..."></textarea>
+                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none">
                     <button class="file-btn" onclick="document.getElementById('fileInput').click()">📁 导入 Excel / CSV</button>
                 </div>
                 <div class="config-group">
-                    <label class="config-option"><input type="checkbox" id="chkHeaderRow" onchange="onConfigChange()"><span>首行为标题行</span></label>
-                    <label class="config-option"><span style="white-space:nowrap;">编号列：</span><select id="selIndexCol" onchange="onConfigChange()"><option value="-1">自动编号</option></select></label>
+                    <label class="config-option"><input type="checkbox" id="chkHeaderRow"><span>首行为标题行</span></label>
+                    <label class="config-option"><span style="white-space:nowrap;">编号列：</span><select id="selIndexCol"><option value="-1">自动编号</option></select></label>
                 </div>
                 <div class="config-group" style="border-bottom:none;">
                     <div class="col-manager-title">📑 列管理（拖拽排序 / × 隐藏）</div>
@@ -295,7 +293,7 @@
 
         <div class="preview-area">
             <div class="preview-toolbar">
-                <div class="base-selector"><label for="baseColSelect">基准列：</label><select id="baseColSelect" onchange="onBaseColChange()"></select></div>
+                <div class="base-selector"><label for="baseColSelect">基准列：</label><select id="baseColSelect"></select></div>
                 <button class="reset-col-btn" onclick="resetColumnWidths()" title="重置列宽">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
                     重置列宽
@@ -344,28 +342,22 @@ document.addEventListener('mouseup',stopLBDrag);
 document.addEventListener('keydown',e=>{if(lbEl.style.display!=='flex')return;if(e.key==='Escape')closeLB();if(e.key==='+'||e.key==='='){e.preventDefault();lbScale=Math.min(8,lbScale+0.1);zoomSlider.value=lbScale.toFixed(1);zoomVal.textContent=Math.round(lbScale*100)+'%';updateLBTransform();}if(e.key==='-'||e.key==='_'){e.preventDefault();lbScale=Math.max(0.1,lbScale-0.1);zoomSlider.value=lbScale.toFixed(1);zoomVal.textContent=Math.round(lbScale*100)+'%';updateLBTransform();}if(e.key==='r'||e.key==='R'){e.preventDefault();rotateLB(90);}});
 document.getElementById('contentArea').addEventListener('click',e=>{const w=e.target.closest('.img-wrapper[data-img-url]');if(w)openLB(w.getAttribute('data-img-url'));});
 
-// ==================== ✅ 列宽拖拽（事件委托 + fixed布局） ====================
+// ==================== ✅ 列宽拖拽 ====================
 const resizeOverlay = document.getElementById('resizeOverlay');
 let resizingTh = null, resizeStartX = 0, resizeStartW = 0, resizeColIndex = -1;
 
 function initColResize(table) {
     if (!table || table.dataset.resizeBound === 'true') return;
     table.dataset.resizeBound = 'true';
-    
     table.addEventListener('mousedown', e => {
         const handle = e.target.closest('.col-resize-handle');
         if (!handle) return;
-        
-        e.preventDefault();
-        e.stopPropagation();
-        
+        e.preventDefault(); e.stopPropagation();
         resizingTh = handle.closest('th');
         if (!resizingTh) return;
-        
         resizeStartX = e.clientX;
         resizeStartW = resizingTh.getBoundingClientRect().width;
         resizeColIndex = Array.from(resizingTh.parentNode.children).indexOf(resizingTh);
-        
         handle.classList.add('active');
         resizeOverlay.style.display = 'block';
         document.body.style.cursor = 'col-resize';
@@ -376,25 +368,18 @@ function initColResize(table) {
 document.addEventListener('mousemove', e => {
     if (!resizingTh) return;
     e.preventDefault();
-    
     const diff = e.clientX - resizeStartX;
     const newW = Math.max(80, resizeStartW + diff);
-    
     resizingTh.style.width = `${newW}px`;
     resizingTh.style.minWidth = `${newW}px`;
     resizingTh.style.maxWidth = `${newW}px`;
-    
     if (resizeColIndex >= 0) {
         const tbody = resizingTh.closest('table')?.querySelector('tbody');
         if (tbody) {
             const rows = tbody.rows;
             for (let i = 0; i < rows.length; i++) {
                 const td = rows[i].cells[resizeColIndex];
-                if (td) {
-                    td.style.width = `${newW}px`;
-                    td.style.minWidth = `${newW}px`;
-                    td.style.maxWidth = `${newW}px`;
-                }
+                if (td) { td.style.width = `${newW}px`; td.style.minWidth = `${newW}px`; td.style.maxWidth = `${newW}px`; }
             }
         }
     }
@@ -403,19 +388,15 @@ document.addEventListener('mousemove', e => {
 document.addEventListener('mouseup', () => {
     if (resizingTh) {
         resizingTh.querySelector('.col-resize-handle')?.classList.remove('active');
-        resizingTh = null;
-        resizeColIndex = -1;
+        resizingTh = null; resizeColIndex = -1;
         resizeOverlay.style.display = 'none';
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
+        document.body.style.cursor = ''; document.body.style.userSelect = '';
     }
 });
 
 function resetColumnWidths() {
     document.querySelectorAll('.compare-table th.text-col, .compare-table td.text-col').forEach(el => {
-        el.style.width = '';
-        el.style.minWidth = '';
-        el.style.maxWidth = '';
+        el.style.width = ''; el.style.minWidth = ''; el.style.maxWidth = '';
     });
 }
 
@@ -424,7 +405,27 @@ let rawRows=[],headerLabels=[],colOrder=[],hiddenCols=new Set();
 let indexColOrig=-1,currentBaseCol=0,isHeaderRow=false,rafPending=false;
 function getVisibleDataCols(){return colOrder.filter(i=>i!==indexColOrig);}
 function scheduleRefresh(){if(rafPending)return;rafPending=true;requestAnimationFrame(()=>{rafPending=false;refreshAll();});}
-function onRawInputChange(){const raw=document.getElementById('raw-input').value.trim();if(!raw){rawRows=[];renderEmptyState();renderColList();updateSelectors();return;}rawRows=parseTSV(raw);initColState();scheduleRefresh();}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const rawInput = document.getElementById('raw-input');
+    const fileInput = document.getElementById('fileInput');
+    const chkHeader = document.getElementById('chkHeaderRow');
+    const selIndex = document.getElementById('selIndexCol');
+    const baseSel = document.getElementById('baseColSelect');
+    if(rawInput) rawInput.addEventListener('input', onRawInputChange);
+    if(fileInput) fileInput.addEventListener('change', function(){ handleFile(this.files[0]); });
+    if(chkHeader) chkHeader.addEventListener('change', onConfigChange);
+    if(selIndex) selIndex.addEventListener('change', onConfigChange);
+    if(baseSel) baseSel.addEventListener('change', onBaseColChange);
+});
+
+function onRawInputChange(){
+    const raw=document.getElementById('raw-input').value.trim();
+    if(!raw){rawRows=[];renderEmptyState();renderColList();updateSelectors();return;}
+    rawRows=parseTSV(raw);
+    initColState();
+    scheduleRefresh();
+}
 function onConfigChange(){isHeaderRow=document.getElementById('chkHeaderRow').checked;indexColOrig=parseInt(document.getElementById('selIndexCol').value,10);updateHeaderLabels();renderColList();scheduleRefresh();}
 function onBaseColChange(){currentBaseCol=parseInt(document.getElementById('baseColSelect').value,10);renderTable();}
 function refreshAll(){updateHeaderLabels();updateSelectors();renderColList();renderTable();}
@@ -485,204 +486,253 @@ function toggleSidebar(){const sb=document.getElementById('configSidebar'),btn=d
 function getDataRows(){return isHeaderRow?rawRows.slice(1):rawRows;}
 function renderEmptyState(){document.getElementById('contentArea').innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p>在左侧输入或导入数据即可实时预览</p></div>`;}
 
-// ==================== ✅ mhchem 嵌套自动修复（纯函数，不修改原始数据） ====================
-function fixMhchemNesting(text) {
-    if (!text || !text.includes('\\ce{')) return text;
-    
-    let result = text;
-    let prev = '';
-    while (prev !== result) {
-        prev = result;
-        result = result.replace(
-            /\\ce\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}/g,
-            (fullMatch, inner) => {
-                if (!inner.includes('\\ce{')) return fullMatch;
-                const fixedInner = inner.replace(/\\ce\{([^{}]*)\}/g, '$1');
-                return '\\ce{' + fixedInner + '}';
-            }
-        );
-    }
-    return result;
+// ==================== 🔧 FIX: 统一混合渲染管线 ====================
+
+/**
+ * 清理业务占位符，防止干扰 Markdown 解析
+ */
+function cleanBusinessPlaceholders(text) {
+    if (!text) return text;
+    // 移除 [[xxx]] 和 {{xxx}} 类型的业务标记
+    return text.replace(/\[\[[\w_]+\]\]/g, '').replace(/\{\{[\w_]+\(.*?\)\}\}/g, '');
 }
 
-// ==================== 核心渲染 ====================
-function renderTable(){
-    const dataRows=getDataRows();const dataCols=getVisibleDataCols();
-    if(!dataRows.length||dataCols.length===0){renderEmptyState();return;}
-    const baseOrigIdx=dataCols[currentBaseCol];
+/**
+ * 核心：Markdown + LaTeX 混合渲染
+ * 策略：先保护 LaTeX -> 再解析 Markdown -> 再还原 LaTeX -> 最后 KaTeX 渲染
+ */
+function renderMixedContent(text) {
+    if (!text || !text.trim()) return '<span style="color:#ccc;font-style:italic;">(空)</span>';
     
-    let tableHtml=`<table class="compare-table"><thead><tr>`;
-    const indexLabel=indexColOrig>=0?headerLabels[indexColOrig]:'#';
-    tableHtml+=`<th class="col-index">${escapeHtml(indexLabel)}</th>`;
-    dataCols.forEach((origIdx,visIdx)=>{
-        const baseClass=visIdx===currentBaseCol?' base-col':'';
-        const baseTag=visIdx===currentBaseCol?' 🎯':'';
-        tableHtml+=`<th class="text-col${baseClass}">${escapeHtml(headerLabels[origIdx])}${baseTag}<div class="col-resize-handle"></div></th>`;
+    // Step 0: 清理业务占位符
+    let cleaned = cleanBusinessPlaceholders(text);
+    
+    // Step 1: 提取并保护所有 LaTeX 块
+    const latexStore = [];
+    // 匹配顺序很重要：先匹配 $$...$$ 和 \[...\]（display），再匹配 $...$ 和 \(...\)（inline）
+    const protectedText = cleaned.replace(
+        /(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[^$\n]+?\$|\\\([\s\S]*?\\\))/g,
+        (match) => {
+            latexStore.push(match);
+            return `%%LATEX_BLOCK_${latexStore.length - 1}%%`;
+        }
+    );
+    
+    // Step 2: Markdown 解析（此时 LaTeX 已被安全替换为占位符）
+    let html = '';
+    try {
+        html = marked.parse(protectedText);
+    } catch (e) {
+        html = `<p>${escapeHtml(protectedText)}</p>`;
+    }
+    
+    // Step 3: 还原 LaTeX 占位符
+    html = html.replace(/%%LATEX_BLOCK_(\d+)%%/g, (_, idx) => {
+        return latexStore[parseInt(idx)] || '';
     });
-    tableHtml+=`</tr></thead><tbody>`;
+    
+    return html;
+}
 
-    dataRows.forEach((row,r)=>{
-        let indexContent=indexColOrig>=0?escapeHtml(row[indexColOrig]||''):`<span style="color:#888;font-size:12px">${r+1}</span>`;
-        const baseText=row[baseOrigIdx]||'';const baseType=detectContentType(baseText);
-        const hasComplex=dataCols.some(oi=>{const t=detectContentType(row[oi]||'');return t==='latex'||t==='markdown'||t==='image'||t==='subscript';});
-        tableHtml+=`<tr><td class="col-index">${indexContent}</td>`;
-        dataCols.forEach((origIdx,visIdx)=>{
+/**
+ * 判断是否为纯图片内容（不含其他有意义文本）
+ */
+function isPureImageContent(text) {
+    if (!text) return false;
+    const t = text.trim();
+    const urls = extractImageUrls(t);
+    if (urls.length === 0) return false;
+    // 移除所有图片引用和 URL 后，检查是否还有有意义的文本
+    const remaining = t
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+        .split(/[\n\r,;]+/)
+        .map(s => s.trim())
+        .filter(s => s && !URL_RE.test(s))
+        .join('');
+    return remaining.length < 5; // 容差：允许少量残留字符
+}
+
+const URL_RE = /^https?:\/\/[\w\-._~:/?#\[\]@!$&'()*+,;=%]+$/i;
+const MD_IMG_RE = /!\[[^\]]*\]\(([^)]+)\)/g;
+
+function extractImageUrls(text) {
+    if (!text) return [];
+    const urls = []; const seen = new Set();
+    const mdMatches = text.matchAll(MD_IMG_RE);
+    for (const m of mdMatches) { const u = m[1].trim(); if (u && !seen.has(u)) { seen.add(u); urls.push(u); } }
+    const segments = text.split(/[\n\r,;]+/).map(s => s.trim()).filter(Boolean);
+    for (const seg of segments) {
+        const clean = seg.replace(/!\[[^\]]*\]\([^)]*\)/g, '').trim();
+        if (clean && URL_RE.test(clean) && !seen.has(clean)) { seen.add(clean); urls.push(clean); }
+    }
+    return urls;
+}
+
+function renderImageGrid(text) {
+    const urls = extractImageUrls(text);
+    if (urls.length === 0) return '<span style="color:#ccc;font-style:italic;">(无有效图片)</span>';
+    return `<div class="img-grid">${urls.map((u, i) => `<div class="img-wrapper" data-img-url="${escapeAttr(u)}"><img src="${escapeAttr(u)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=img-error>⚠️ 加载失败</div>'"><span class="img-label">${i + 1}</span></div>`).join('')}</div>`;
+}
+
+/**
+ * 统一内容渲染入口
+ * 🔧 FIX: 不再区分 markdown/latex/plain/subscript，统一走混合渲染管线
+ */
+function renderContent(text, type) {
+    if (!text || !text.trim()) return '<span style="color:#ccc;font-style:italic;">(空)</span>';
+    
+    // 纯图片内容单独处理
+    if (type === 'image' || isPureImageContent(text)) {
+        return renderImageGrid(text);
+    }
+    
+    // 🔧 FIX: 所有内容统一走 Markdown + LaTeX 混合渲染
+    return renderMixedContent(text);
+}
+
+/**
+ * 简化后的内容类型检测
+ * 🔧 FIX: 仅区分 image vs rich-text，不再细分 markdown/latex/plain
+ */
+function detectContentType(text) {
+    if (!text) return 'empty';
+    const t = text.trim();
+    if (!t) return 'empty';
+    if (isPureImageContent(t)) return 'image';
+    return 'rich'; // 统一标记为富文本，由 renderContent 内部处理混合渲染
+}
+
+// ==================== KaTeX 配置 ====================
+const KATEX_MACROS = {
+    "\\bra": "\\langle #1 |", "\\ket": "| #1 \\rangle", "\\braket": "\\langle #1 | #2 \\rangle",
+    "\\Bra": "\\left\\langle #1 \\right|", "\\Ket": "\\left| #1 \\right\\rangle",
+    "\\Braket": "\\left\\langle #1 \\middle| #2 \\right\\rangle",
+    "\\dv": "\\frac{d #1}{d #2}", "\\pdv": "\\frac{\\partial #1}{\\partial #2}",
+    "\\order": "\\mathcal{O}\\left(#1\\right)", "\\comm": "[#1, #2]", "\\anticomm": "\\{#1, #2\\}",
+    "\\R": "\\mathbb{R}", "\\N": "\\mathbb{N}", "\\Z": "\\mathbb{Z}", "\\Q": "\\mathbb{Q}", "\\C": "\\mathbb{C}",
+    "\\eps": "\\varepsilon", "\\phi": "\\varphi", "\\ell": "\\ell",
+    "\\dif": "\\mathrm{d}", "\\dd": "\\mathrm{d}", "\\ii": "\\mathrm{i}", "\\ee": "\\mathrm{e}", "\\jj": "\\mathrm{j}",
+    "\\T": "\\mathrm{T}", "\\tr": "\\operatorname{tr}", "\\diag": "\\operatorname{diag}", "\\rank": "\\operatorname{rank}",
+    "\\argmin": "\\operatorname{arg\\,min}", "\\argmax": "\\operatorname{arg\\,max}",
+    "\\bbox": "\\htmlClass{bbox-#1}{#2}"
+};
+
+function doKaTeX(el) {
+    if (typeof renderMathInElement !== 'function') return;
+    try {
+        renderMathInElement(el, {
+            delimiters: [
+                { left: '$$', right: '$$', display: true },
+                { left: '$', right: '$', display: false },
+                { left: '\\(', right: '\\)', display: false },
+                { left: '\\[', right: '\\]', display: true }
+            ],
+            throwOnError: false,
+            trust: true,
+            strict: false,
+            macros: KATEX_MACROS
+        });
+    } catch (e) { console.warn('KaTeX render error:', e); }
+}
+
+// ==================== 核心表格渲染 ====================
+function renderTable() {
+    const dataRows = getDataRows(); const dataCols = getVisibleDataCols();
+    if (!dataRows.length || dataCols.length === 0) { renderEmptyState(); return; }
+    const baseOrigIdx = dataCols[currentBaseCol];
+
+    let tableHtml = `<table class="compare-table"><thead><tr>`;
+    const indexLabel = indexColOrig >= 0 ? headerLabels[indexColOrig] : '#';
+    tableHtml += `<th class="col-index">${escapeHtml(indexLabel)}</th>`;
+    dataCols.forEach((origIdx, visIdx) => {
+        const baseClass = visIdx === currentBaseCol ? ' base-col' : '';
+        const baseTag = visIdx === currentBaseCol ? ' 🎯' : '';
+        tableHtml += `<th class="text-col${baseClass}">${escapeHtml(headerLabels[origIdx])}${baseTag}<div class="col-resize-handle"></div></th>`;
+    });
+    tableHtml += `</tr></thead><tbody>`;
+
+    dataRows.forEach((row, r) => {
+        let indexContent = indexColOrig >= 0 ? escapeHtml(row[indexColOrig] || '') : `<span style="color:#888;font-size:12px">${r + 1}</span>`;
+        const baseText = row[baseOrigIdx] || '';
+        const hasComplex = dataCols.some(oi => {
+            const t = detectContentType(row[oi] || '');
+            return t === 'rich' || t === 'image';
+        });
+        tableHtml += `<tr><td class="col-index">${indexContent}</td>`;
+        dataCols.forEach((origIdx, visIdx) => {
             const originalText = row[origIdx] || '';
             const type = detectContentType(originalText);
             const isBase = visIdx === currentBaseCol;
             const isSame = originalText === baseText;
-            const diffs = (!isBase && !isSame && type === 'plain' && baseType === 'plain') ? computeDiff(baseText, originalText) : null;
-            
-            let statusBadge = isBase ? '<span class="status-badge status-base">基准</span>' 
-                : isSame ? '<span class="status-badge status-same">一致</span>' 
-                : '<span class="status-badge status-diff">差异</span>';
-            
-            let sourceHtml = isBase ? escapeHtml(originalText) 
-                : diffs ? renderDiffSource(originalText, diffs, false) 
-                : escapeHtml(originalText);
-            
+
+            // 🔧 FIX: 仅纯文本间才做 Diff，避免标签断裂
+            const safeToDiff = type !== 'rich' && type !== 'image';
+            const diffs = (!isBase && !isSame && safeToDiff) ? computeDiff(baseText, originalText) : null;
+
+            let statusBadge = isBase ? '<span class="status-badge status-base">基准</span>'
+                : isSame ? '<span class="status-badge status-same">一致</span>'
+                    : '<span class="status-badge status-diff">差异</span>';
+
+            let sourceHtml = isBase ? escapeHtml(originalText)
+                : diffs ? renderDiffSource(originalText, diffs, false)
+                    : escapeHtml(originalText);
+
             const renderedHtml = renderContent(originalText, type);
-            
-            const cellId=`cell-${r}-${visIdx}`;
-            const defaultTab=hasComplex?'render':'source';
-            const tdClass=isBase?' base-col':'';
-            tableHtml+=`<td class="text-col${tdClass}"><div class="cell-container">
+
+            const cellId = `cell-${r}-${visIdx}`;
+            const defaultTab = hasComplex ? 'render' : 'source';
+            const tdClass = isBase ? ' base-col' : '';
+            tableHtml += `<td class="text-col${tdClass}"><div class="cell-container">
                 <div class="cell-tabs">
-                    <button class="cell-tab ${defaultTab==='source'?'active':''}" onclick="switchCellTab('${cellId}','source',this)">源码${statusBadge}</button>
-                    <button class="cell-tab ${defaultTab==='render'?'active':''}" onclick="switchCellTab('${cellId}','render',this)">预览</button>
+                    <button class="cell-tab ${defaultTab === 'source' ? 'active' : ''}" onclick="switchCellTab('${cellId}','source',this)">源码${statusBadge}</button>
+                    <button class="cell-tab ${defaultTab === 'render' ? 'active' : ''}" onclick="switchCellTab('${cellId}','render',this)">预览</button>
                 </div>
-                <div id="${cellId}-source" class="cell-body source-view" style="display:${defaultTab==='source'?'block':'none'}">${sourceHtml}</div>
-                <div id="${cellId}-render" class="cell-body render-view" style="display:${defaultTab==='render'?'block':'none'}">${renderedHtml}</div>
+                <div id="${cellId}-source" class="cell-body source-view" style="display:${defaultTab === 'source' ? 'block' : 'none'}">${sourceHtml}</div>
+                <div id="${cellId}-render" class="cell-body render-view" style="display:${defaultTab === 'render' ? 'block' : 'none'}">${renderedHtml}</div>
             </div></td>`;
         });
-        tableHtml+=`</tr>`;
+        tableHtml += `</tr>`;
     });
-    tableHtml+=`</tbody></table>`;
-    
-    const contentArea=document.getElementById('contentArea');
-    contentArea.innerHTML=tableHtml;
-    
-    requestAnimationFrame(()=>{
-        const table=contentArea.querySelector('.compare-table');
-        if(table)initColResize(table);
-        document.querySelectorAll('.render-view').forEach(el=>doKaTeX(el));
+    tableHtml += `</tbody></table>`;
+
+    const contentArea = document.getElementById('contentArea');
+    contentArea.innerHTML = tableHtml;
+
+    requestAnimationFrame(() => {
+        const table = contentArea.querySelector('.compare-table');
+        if (table) initColResize(table);
+        document.querySelectorAll('.render-view').forEach(el => doKaTeX(el));
     });
-}
-
-// ==================== LaTeX + Markdown ====================
-function preprocessLatex(text){
-    if(!text)return text;
-    let s=text;
-    s=s.replace(/\\\\([a-zA-Z])/g,'\\$1');
-    const hasDelimiter=/\$|\\\(|\\\[/.test(s);
-    if(!hasDelimiter&&/\\[a-zA-Z]+/.test(s)){s='$'+s+'$';}
-    return s;
-}
-
-const KATEX_MACROS={
-    "\\bra":"\\langle #1 |","\\ket":"| #1 \\rangle","\\braket":"\\langle #1 | #2 \\rangle",
-    "\\Bra":"\\left\\langle #1 \\right|","\\Ket":"\\left| #1 \\right\\rangle",
-    "\\Braket":"\\left\\langle #1 \\middle| #2 \\right\\rangle",
-    "\\dv":"\\frac{d #1}{d #2}","\\pdv":"\\frac{\\partial #1}{\\partial #2}",
-    "\\order":"\\mathcal{O}\\left(#1\\right)","\\comm":"[#1, #2]","\\anticomm":"\\{#1, #2\\}",
-    "\\R":"\\mathbb{R}","\\N":"\\mathbb{N}","\\Z":"\\mathbb{Z}","\\Q":"\\mathbb{Q}","\\C":"\\mathbb{C}",
-    "\\eps":"\\varepsilon","\\phi":"\\varphi","\\ell":"\\ell",
-    "\\dif":"\\mathrm{d}","\\dd":"\\mathrm{d}","\\ii":"\\mathrm{i}","\\ee":"\\mathrm{e}","\\jj":"\\mathrm{j}",
-    "\\T":"\\mathrm{T}","\\tr":"\\operatorname{tr}","\\diag":"\\operatorname{diag}","\\rank":"\\operatorname{rank}",
-    "\\argmin":"\\operatorname{arg\\,min}","\\argmax":"\\operatorname{arg\\,max}",
-    "\\bbox":"\\htmlClass{bbox-#1}{#2}"
-};
-
-function doKaTeX(el){
-    if(typeof renderMathInElement!=='function')return;
-    try{renderMathInElement(el,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}],throwOnError:false,trust:true,strict:false,macros:KATEX_MACROS});}catch(e){}
-}
-
-function renderMarkdownWithLatex(text){
-    const latexStore=[];
-    const protectedText=text.replace(/(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\])/g,(match)=>{latexStore.push(match);return`%%LATEX_BLOCK_${latexStore.length-1}%%`;});
-    let html='';try{html=marked.parse(protectedText);}catch(e){html=`<p>${escapeHtml(protectedText)}</p>`;}
-    html=html.replace(/%%LATEX_BLOCK_(\d+)%%/g,(_,idx)=>latexStore[parseInt(idx)]);
-    return html;
-}
-
-// ==================== 内容检测 ====================
-const URL_RE=/^https?:\/\/[\w\-._~:/?#\[\]@!$&'()*+,;=%]+$/i;
-const MD_IMG_RE=/!\[[^\]]*\]\(([^)]+)\)/g;
-const LATEX_RE=/\$\$[\s\S]*?\$\$|\$[^$\n]+?\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]|\\[a-zA-Z]+\{/;
-const MD_RE=/[*_~`#>\-\[\]()!|]/;
-const SUBSCRIPT_RE=/[\w\d\)\]\}][\^_][\w\d\(]/;
-
-function extractImageUrls(text){
-    if(!text)return[];const urls=[];const seen=new Set();
-    const mdMatches=text.matchAll(MD_IMG_RE);
-    for(const m of mdMatches){const u=m[1].trim();if(u&&!seen.has(u)){seen.add(u);urls.push(u);}}
-    const segments=text.split(/[\n\r,;]+/).map(s=>s.trim()).filter(Boolean);
-    for(const seg of segments){const clean=seg.replace(/!\[[^\]]*\]\([^)]*\)/g,'').trim();if(clean&&URL_RE.test(clean)&&!seen.has(clean)){seen.add(clean);urls.push(clean);}}
-    return urls;
-}
-
-function detectContentType(text){
-    if(!text)return'empty';const t=text.trim();if(!t)return'empty';
-    if(extractImageUrls(t).length>0)return'image';
-    if(LATEX_RE.test(t)||/\\[a-zA-Z]+/.test(t))return'latex';
-    if(SUBSCRIPT_RE.test(t))return'subscript';
-    if(MD_RE.test(t))return'markdown';
-    return'plain';
-}
-
-function renderImageGrid(text){
-    const urls=extractImageUrls(text);
-    if(urls.length===0)return'<span style="color:#ccc;font-style:italic;">(无有效图片)</span>';
-    return`<div class="img-grid">${urls.map((u,i)=>`<div class="img-wrapper" data-img-url="${escapeAttr(u)}"><img src="${escapeAttr(u)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=img-error>⚠️ 加载失败</div>'"><span class="img-label">${i+1}</span></div>`).join('')}</div>`;
-}
-
-function renderSubscript(text){
-    if(!text||!SUBSCRIPT_RE.test(text))return null;
-    let l=text.replace(/([A-Za-z])_(\d+)/g,'\\mathrm{$1}_{$2}').replace(/\b(log|ln|lg|sin|cos|tan|cot|sec|csc|lim|max|min|sup|inf|det|dim|ker|gcd)\s*_\s*([a-zA-Z0-9]+)/gi,'\\$1_{$2}').replace(/\b(log|ln|lg|sin|cos|tan|cot|sec|csc|lim|max|min|sup|inf|det|dim|ker|gcd)\s*\^\s*([a-zA-Z0-9]+)/gi,'\\$1^{$2}').replace(/([a-zA-Z0-9])\s*_\s*([a-zA-Z0-9]+)/g,'$1_{$2}').replace(/(\([^\)]+\))\s*\^\s*([a-zA-Z0-9]+)/g,'$1^{$2}').replace(/([a-zA-Z0-9])\s*\^\s*([a-zA-Z0-9]+)/g,'$1^{$2}');
-    if(!l.startsWith('$'))l=`$${l}$`;return l;
-}
-
-function renderContent(text, type){
-    if(!text)return'<span style="color:#ccc;font-style:italic;">(空)</span>';
-    if(type==='image')return renderImageGrid(text);
-    if(type==='subscript'){const lr=renderSubscript(text);if(lr)return lr;}
-    
-    const fixedText = fixMhchemNesting(text);
-    
-    if(type==='latex')return preprocessLatex(fixedText);
-    if(type==='markdown')return renderMarkdownWithLatex(fixedText);
-    return preprocessLatex(escapeHtml(fixedText));
 }
 
 // ==================== 解析工具 ====================
-function cleanCellText(text){if(!text)return'';return String(text).replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();}
-function escapeTSVCell(text){if(text==null)return'';const str=String(text);return/[\n\r\t"]/.test(str)?'"'+str.replace(/"/g,'""')+'"':str;}
-function parseTSV(text){
-    if(!text||typeof text!=='string')return[];
-    const rows=[];let currentRow=[],currentCell='',inQuote=false,i=0;
-    while(i<text.length){
-        const c=text[i],nextC=text[i+1];
-        if(inQuote){if(c==='"'&&nextC==='"'){currentCell+='"';i++;}else if(c==='"'){inQuote=false;}else{currentCell+=c;}}
-        else{if(c==='"'){inQuote=true;}else if(c==='\t'){currentRow.push(cleanCellText(currentCell));currentCell='';}else if(c==='\n'||c==='\r'){if(c==='\r'&&nextC==='\n')i++;currentRow.push(cleanCellText(currentCell));currentCell='';if(currentRow.some(cell=>cell!==''))rows.push(currentRow);currentRow=[];}else{currentCell+=c;}}
+function cleanCellText(text) { if (!text) return ''; return String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim(); }
+function escapeTSVCell(text) { if (text == null) return ''; const str = String(text); return /[\n\r\t"]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str; }
+function parseTSV(text) {
+    if (!text || typeof text !== 'string') return [];
+    const rows = []; let currentRow = [], currentCell = '', inQuote = false, i = 0;
+    while (i < text.length) {
+        const c = text[i], nextC = text[i + 1];
+        if (inQuote) { if (c === '"' && nextC === '"') { currentCell += '"'; i++; } else if (c === '"') { inQuote = false; } else { currentCell += c; } }
+        else { if (c === '"') { inQuote = true; } else if (c === '\t') { currentRow.push(cleanCellText(currentCell)); currentCell = ''; } else if (c === '\n' || c === '\r') { if (c === '\r' && nextC === '\n') i++; currentRow.push(cleanCellText(currentCell)); currentCell = ''; if (currentRow.some(cell => cell !== '')) rows.push(currentRow); currentRow = []; } else { currentCell += c; } }
         i++;
     }
-    currentRow.push(cleanCellText(currentCell));if(currentRow.some(cell=>cell!==''))rows.push(currentRow);return rows;
+    currentRow.push(cleanCellText(currentCell)); if (currentRow.some(cell => cell !== '')) rows.push(currentRow); return rows;
 }
-function handleFile(file){
-    if(!file)return;const reader=new FileReader();
-    reader.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});const cleanedData=data.map(row=>row.map(cell=>cleanCellText(String(cell??'')))).filter(row=>row.some(cell=>cell!==''));const tsvContent=cleanedData.map(r=>r.map(cell=>escapeTSVCell(cell)).join('\t')).join('\n');document.getElementById('raw-input').value=tsvContent;onRawInputChange();}catch(err){alert('文件解析失败: '+err.message);}};
+function handleFile(file) {
+    if (!file) return; const reader = new FileReader();
+    reader.onload = e => { try { const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' }); const ws = wb.Sheets[wb.SheetNames[0]]; const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }); const cleanedData = data.map(row => row.map(cell => cleanCellText(String(cell ?? '')))).filter(row => row.some(cell => cell !== '')); const tsvContent = cleanedData.map(r => r.map(cell => escapeTSVCell(cell)).join('\t')).join('\n'); document.getElementById('raw-input').value = tsvContent; onRawInputChange(); } catch (err) { alert('文件解析失败: ' + err.message); } };
     reader.readAsArrayBuffer(file);
 }
 
 // ==================== Diff & 工具 ====================
-const dmp=new diff_match_patch();
-function computeDiff(a,b){if(a===b)return null;const d=dmp.diff_main(a,b);dmp.diff_cleanupSemantic(d);return d;}
-function renderDiffSource(text,diffs,isBase){if(!diffs)return escapeHtml(text);let h='';for(const[op,data]of diffs){const e=escapeHtml(data);if(op===0)h+=e;else if(op===1&&!isBase)h+=`<span class="diff-ins">${e}</span>`;else if(op===-1&&isBase)h+=`<span class="diff-del">${e}</span>`;}return h;}
-function switchCellTab(id,tab,btn){const p=btn.closest('.cell-container');p.querySelectorAll('.cell-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');p.querySelector(`#${id}-source`).style.display=tab==='source'?'block':'none';p.querySelector(`#${id}-render`).style.display=tab==='render'?'block':'none';if(tab==='render')requestAnimationFrame(()=>doKaTeX(p.querySelector(`#${id}-render`)));}
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function escapeAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function clearAll(){document.getElementById('raw-input').value='';document.getElementById('fileInput').value='';rawRows=[];headerLabels=[];colOrder=[];hiddenCols.clear();indexColOrig=-1;currentBaseCol=0;isHeaderRow=false;document.getElementById('chkHeaderRow').checked=false;document.getElementById('selIndexCol').value='-1';renderEmptyState();renderColList();updateSelectors();}
+const dmp = new diff_match_patch();
+function computeDiff(a, b) { if (a === b) return null; const d = dmp.diff_main(a, b); dmp.diff_cleanupSemantic(d); return d; }
+function renderDiffSource(text, diffs, isBase) { if (!diffs) return escapeHtml(text); let h = ''; for (const [op, data] of diffs) { const e = escapeHtml(data); if (op === 0) h += e; else if (op === 1 && !isBase) h += `<span class="diff-ins">${e}</span>`; else if (op === -1 && isBase) h += `<span class="diff-del">${e}</span>`; } return h; }
+function switchCellTab(id, tab, btn) { const p = btn.closest('.cell-container'); p.querySelectorAll('.cell-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); p.querySelector(`#${id}-source`).style.display = tab === 'source' ? 'block' : 'none'; p.querySelector(`#${id}-render`).style.display = tab === 'render' ? 'block' : 'none'; if (tab === 'render') requestAnimationFrame(() => doKaTeX(p.querySelector(`#${id}-render`))); }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function escapeAttr(s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function clearAll() { document.getElementById('raw-input').value = ''; document.getElementById('fileInput').value = ''; rawRows = []; headerLabels = []; colOrder = []; hiddenCols.clear(); indexColOrig = -1; currentBaseCol = 0; isHeaderRow = false; document.getElementById('chkHeaderRow').checked = false; document.getElementById('selIndexCol').value = '-1'; renderEmptyState(); renderColList(); updateSelectors(); }
 </script>
 </body>
 </html>
