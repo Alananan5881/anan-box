@@ -10,6 +10,8 @@
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/mhchem.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/diff-match-patch@1.0.5/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+    
     <style>
         :root {
             --primary: #1d4ed8;
@@ -30,7 +32,6 @@
             height: 100vh; display: flex; flex-direction: column; overflow: hidden; 
         }
 
-        /* === 顶部导航栏 === */
         .top-bar {
             height: var(--top-bar-h); min-height: var(--top-bar-h); max-height: var(--top-bar-h);
             background: #fff; border-bottom: 1px solid #eef1f5;
@@ -47,10 +48,8 @@
         .btn-action { padding: 5px 12px; border: 1px solid #d0d7de; color: #555; background: #fff; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
         .btn-action:hover { border-color: var(--primary); color: var(--primary); background: #f8fbff; }
 
-        /* === 工作区布局 === */
         .workspace { flex: 1; display: flex; overflow: hidden; min-height: 0; }
 
-        /* 左侧配置面板 */
         .config-sidebar {
             width: var(--sidebar-w); min-width: var(--sidebar-w); background: #fff;
             border-right: 1px solid var(--gray-200); display: flex; flex-direction: column;
@@ -88,37 +87,100 @@
         .col-chip.hidden-col .col-chip-del { background: #f3f4f6; color: #999; }
         .col-chip.index-col { border-color: #bfdbfe; background: #eff6ff; }
 
-        /* 右侧预览区 */
         .preview-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; padding: 8px; position: relative; }
         .preview-toolbar { display: flex; align-items: center; gap: 8px; padding: 0 4px 8px; flex-shrink: 0; flex-wrap: wrap; }
         .base-selector { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555; }
         .base-selector select { padding: 4px 8px; border: 1px solid #d0d7de; border-radius: 4px; font-size: 13px; outline: none; cursor: pointer; min-width: 100px; }
-        .toggle-sidebar-btn { padding: 4px 10px; border: 1px solid #d0d7de; background: #fff; border-radius: 4px; font-size: 12px; cursor: pointer; color: #555; transition: all 0.2s; margin-left: auto; }
-        .toggle-sidebar-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .toggle-sidebar-btn, .reset-col-btn { padding: 4px 10px; border: 1px solid #d0d7de; background: #fff; border-radius: 4px; font-size: 12px; cursor: pointer; color: #555; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }
+        .toggle-sidebar-btn:hover, .reset-col-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .toggle-sidebar-btn { margin-left: auto; }
 
-        .table-wrapper { flex: 1; border-radius: 8px; box-shadow: 0 3px 15px rgba(0,0,0,0.08); background: white; overflow: auto; min-height: 0; }
+        .table-wrapper { 
+            flex: 1; border-radius: 8px; box-shadow: 0 3px 15px rgba(0,0,0,0.08); 
+            background: white; overflow: auto; min-height: 0; position: relative; 
+        }
 
-        /* === 表格样式 === */
-        .compare-table { width: 100%; border-collapse: separate; border-spacing: 0; }
-        .compare-table th, .compare-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--gray-200); border-right: 1px solid var(--gray-200); vertical-align: top; }
+        .compare-table { 
+            width: max-content; 
+            min-width: 100%;
+            border-collapse: separate; border-spacing: 0; 
+            table-layout: fixed; 
+        }
+        .compare-table th, .compare-table td { 
+            padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--gray-200); 
+            border-right: 1px solid var(--gray-200); vertical-align: top; 
+            overflow: hidden; text-overflow: ellipsis;
+        }
         .compare-table th:last-child, .compare-table td:last-child { border-right: none; }
-        .compare-table thead th { position: sticky; top: 0; z-index: 20; background: var(--header-bg); background-clip: padding-box; box-shadow: 0 1px 3px rgba(0,0,0,0.08); font-size: 13px; font-weight: 600; white-space: nowrap; }
-        .col-index { width: 60px; min-width: 60px; max-width: 60px; text-align: center; color: #555; font-size: 12px; background: var(--index-bg); background-clip: padding-box; position: sticky; left: 0; z-index: 30; box-shadow: 1px 0 3px rgba(0,0,0,0.06); font-weight: 600; }
+        .compare-table thead th { 
+            position: sticky; top: 0; z-index: 20; background: var(--header-bg); 
+            background-clip: padding-box; box-shadow: 0 1px 3px rgba(0,0,0,0.08); 
+            font-size: 13px; font-weight: 600; white-space: nowrap; 
+        }
+        .col-index { 
+            width: 60px !important; min-width: 60px !important; max-width: 60px !important; 
+            text-align: center; color: #555; font-size: 12px; background: var(--index-bg); 
+            background-clip: padding-box; position: sticky; left: 0; z-index: 30; 
+            box-shadow: 1px 0 3px rgba(0,0,0,0.06); font-weight: 600; 
+        }
         .compare-table thead th.col-index { z-index: 40 !important; background: var(--index-header-bg); background-clip: padding-box; }
         .compare-table th.base-col { background: #eff6ff !important; color: var(--primary); border-bottom: 2px solid var(--primary); }
         .compare-table td.base-col { background: #fafcff; }
-        .text-col { min-width: 260px; }
+        
+        .text-col { 
+            min-width: 150px; 
+            width: 200px; 
+            position: relative; 
+        }
 
-        .cell-container { display: flex; flex-direction: column; min-height: 70px; }
+        .col-resize-handle {
+            position: absolute; right: -4px; top: 0; bottom: 0; width: 8px;
+            cursor: col-resize; z-index: 50; user-select: none;
+            background: transparent; transition: background 0.15s;
+        }
+        .col-resize-handle:hover, .col-resize-handle.active { 
+            background: var(--primary); opacity: 0.6; 
+        }
+        
+        .resize-overlay { 
+            position: fixed; inset: 0; z-index: 99999; 
+            cursor: col-resize; display: none; 
+            background: transparent;
+        }
+
+        .cell-container { 
+            display: flex; 
+            flex-direction: column; 
+            min-height: 70px; 
+            position: relative;
+        }
         .cell-tabs { display: flex; border-bottom: 1px solid #f0f0f0; background: #fafafa; flex-shrink: 0; }
         .cell-tab { padding: 4px 12px; font-size: 11px; cursor: pointer; border: none; background: none; color: #888; transition: all 0.2s; white-space: nowrap; }
         .cell-tab.active { color: var(--primary); border-bottom: 2px solid var(--primary); background: #fff; }
-        .cell-body { padding: 10px 12px; font-size: 13px; line-height: 1.7; word-break: break-word; flex: 1; overflow-y: auto; max-height: 400px; }
+        
+        /* ✅ 核心修复：限制高度 + 启用垂直滚动 */
+        .cell-body { 
+            padding: 10px 12px; 
+            font-size: 13px; 
+            line-height: 1.7; 
+            word-break: break-word; 
+            flex: 1; 
+            max-height: 280px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* 滚动条美化 */
+        .cell-body::-webkit-scrollbar { width: 6px; }
+        .cell-body::-webkit-scrollbar-track { background: #f1f1f1; }
+        .cell-body::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+        .cell-body::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        
         .source-view { font-family: 'Menlo', 'Monaco', 'Courier New', monospace; font-size: 12px; white-space: pre-wrap; }
         .diff-ins { background: #dcfce7; color: #166534; padding: 1px 2px; border-radius: 2px; }
         .diff-del { background: #fee2e2; color: #991b1b; padding: 1px 2px; border-radius: 2px; text-decoration: line-through; }
         
-        /* === ✅ 多图网格样式 (参照 Session 对比工具) === */
         .img-grid { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
         .img-wrapper {
             width: 120px; height: 120px; border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden;
@@ -127,17 +189,38 @@
         }
         .img-wrapper:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .img-wrapper img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
-        .img-label {
-            position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.6);
-            color: white; font-size: 10px; padding: 1px 5px; border-radius: 3px; pointer-events: none;
-        }
+        .img-label { position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.6); color: white; font-size: 10px; padding: 1px 5px; border-radius: 3px; pointer-events: none; }
         .img-error { font-size: 11px; color: #ef4444; text-align: center; padding: 8px; width: 100%; }
 
-        /* Markdown / 富文本渲染样式 */
-        .render-view p { margin: 4px 0; }
-        .render-view ul, .render-view ol { padding-left: 20px; margin: 4px 0; }
-        .render-view code { background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-size: 0.9em; }
-        .render-view blockquote { border-left: 3px solid var(--primary); padding-left: 10px; color: #666; margin: 4px 0; }
+        .render-view h1, .render-view h2, .render-view h3, .render-view h4 { margin: 12px 0 8px; line-height: 1.4; }
+        .render-view h1 { font-size: 1.4em; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+        .render-view h2 { font-size: 1.25em; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+        .render-view h3 { font-size: 1.1em; }
+        .render-view h4 { font-size: 1em; }
+        .render-view p { margin: 8px 0; line-height: 1.8; }
+        .render-view ul, .render-view ol { padding-left: 24px; margin: 8px 0; }
+        .render-view li { margin: 4px 0; line-height: 1.7; }
+        .render-view code { background: #f3f4f6; padding: 2px 5px; border-radius: 3px; font-size: 0.9em; font-family: 'Menlo', monospace; }
+        .render-view pre { background: #f8fafc; padding: 12px; border-radius: 6px; overflow-x: auto; margin: 12px 0; }
+        .render-view pre code { background: none; padding: 0; }
+        .render-view blockquote { border-left: 3px solid var(--primary); padding: 8px 12px; color: #555; margin: 12px 0; background: #f8fafc; border-radius: 0 4px 4px 0; }
+        .render-view strong { font-weight: 700; }
+        .render-view em { font-style: italic; }
+        .render-view del { text-decoration: line-through; color: #888; }
+        .render-view hr { border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }
+        .render-view table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }
+        .render-view table th, .render-view table td { border: 1px solid #d1d5db; padding: 8px 10px; text-align: left; }
+        .render-view table th { background: #f8fafc; font-weight: 600; }
+        .render-view table tr:nth-child(even) { background: #fafafa; }
+        .render-view a { color: var(--primary); text-decoration: none; }
+        .render-view a:hover { text-decoration: underline; }
+
+        .katex .bbox-yellow { background-color: #fef9c3; padding: 2px 4px; border-radius: 3px; }
+        .katex .bbox-red { background-color: #fee2e2; padding: 2px 4px; border-radius: 3px; }
+        .katex .bbox-blue { background-color: #dbeafe; padding: 2px 4px; border-radius: 3px; }
+        .katex .bbox-green { background-color: #dcfce7; padding: 2px 4px; border-radius: 3px; }
+        .katex .bbox-gray { background-color: #f3f4f6; padding: 2px 4px; border-radius: 3px; }
+        .katex .bbox-border { border: 1px solid #d1d5db; padding: 2px 4px; border-radius: 3px; }
         
         .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; margin-left: 8px; }
         .status-same { background: #dcfce7; color: #166534; }
@@ -146,31 +229,13 @@
         .empty-state { text-align: center; padding: 60px 20px; color: #999; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
         .empty-state svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.3; }
 
-        /* === ✅ 灯箱样式 (Lightbox) === */
-        .lightbox {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: none; z-index: 2000;
-            justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(4px);
-        }
-        .lb-close { 
-            position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; 
-            width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
-            border-radius: 50%; transition: background 0.2s; z-index: 2001;
-        }
+        .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: none; z-index: 2000; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(4px); }
+        .lb-close { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s; z-index: 2001; }
         .lb-close:hover { background: rgba(255,255,255,0.15); }
-        .lb-image { 
-            max-width: 90vw; max-height: 80vh; object-fit: contain; cursor: grab; 
-            user-select: none; -webkit-user-drag: none; transform-origin: center center;
-        }
+        .lb-image { max-width: 90vw; max-height: 80vh; object-fit: contain; cursor: grab; user-select: none; -webkit-user-drag: none; transform-origin: center center; }
         .lb-image:active { cursor: grabbing; }
-        .lb-tools { 
-            margin-top: 20px; display: flex; align-items: center; gap: 12px; 
-            background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 24px; backdrop-filter: blur(8px);
-        }
-        .lb-btn {
-            background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px;
-            border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
-            transition: background 0.2s;
-        }
+        .lb-tools { margin-top: 20px; display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 24px; backdrop-filter: blur(8px); }
+        .lb-btn { background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
         .lb-btn:hover { background: rgba(255,255,255,0.35); }
         #zoomVal { color: white; min-width: 52px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; }
         #zoomSlider { width: 120px; height: 4px; appearance: none; background: rgba(255,255,255,0.3); border-radius: 2px; cursor: pointer; outline: none; }
@@ -183,7 +248,7 @@
             .config-sidebar { width: 100% !important; min-width: 100% !important; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--gray-200); }
             .config-sidebar.collapsed { max-height: 0; min-width: 100% !important; }
             .preview-area { padding: 4px; }
-            .text-col { min-width: 200px; }
+            .text-col { min-width: 100px; width: 150px; }
             .img-wrapper { width: 80px; height: 80px; }
             .lb-close { top: 10px; right: 10px; }
             .lb-tools { padding: 6px 12px; gap: 8px; }
@@ -192,6 +257,8 @@
     </style>
 </head>
 <body>
+
+    <div class="resize-overlay" id="resizeOverlay"></div>
 
     <div class="top-bar">
         <button id="back-to-box" onclick="location.href='index.html'" title="返回百宝箱主页">
@@ -210,40 +277,29 @@
             <div class="sidebar-body">
                 <div class="input-section">
                     <div class="input-label">📋 数据输入</div>
-                    <div class="input-hint">💡 含换行或多图的单元格推荐使用「导入」功能，直接粘贴可能因格式限制导致分行错误。</div>
+                    <div class="input-hint">💡 含换行或多图的单元格推荐使用「导入」功能。</div>
                     <textarea id="raw-input" placeholder="粘贴 Excel / TSV 数据..." oninput="onRawInputChange()"></textarea>
                     <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(this.files[0])">
                     <button class="file-btn" onclick="document.getElementById('fileInput').click()">📁 导入 Excel / CSV</button>
                 </div>
-
                 <div class="config-group">
-                    <label class="config-option">
-                        <input type="checkbox" id="chkHeaderRow" onchange="onConfigChange()">
-                        <span>首行为标题行</span>
-                    </label>
-                    <label class="config-option">
-                        <span style="white-space:nowrap;">编号列：</span>
-                        <select id="selIndexCol" onchange="onConfigChange()">
-                            <option value="-1">自动编号</option>
-                        </select>
-                    </label>
+                    <label class="config-option"><input type="checkbox" id="chkHeaderRow" onchange="onConfigChange()"><span>首行为标题行</span></label>
+                    <label class="config-option"><span style="white-space:nowrap;">编号列：</span><select id="selIndexCol" onchange="onConfigChange()"><option value="-1">自动编号</option></select></label>
                 </div>
-
                 <div class="config-group" style="border-bottom:none;">
                     <div class="col-manager-title">📑 列管理（拖拽排序 / × 隐藏）</div>
-                    <div class="col-list" id="colList">
-                        <div style="color:#aaa;font-size:12px;padding:8px 0;">输入数据后自动显示列配置</div>
-                    </div>
+                    <div class="col-list" id="colList"><div style="color:#aaa;font-size:12px;padding:8px 0;">输入数据后自动显示</div></div>
                 </div>
             </div>
         </div>
 
         <div class="preview-area">
             <div class="preview-toolbar">
-                <div class="base-selector">
-                    <label for="baseColSelect">基准列：</label>
-                    <select id="baseColSelect" onchange="onBaseColChange()"></select>
-                </div>
+                <div class="base-selector"><label for="baseColSelect">基准列：</label><select id="baseColSelect" onchange="onBaseColChange()"></select></div>
+                <button class="reset-col-btn" onclick="resetColumnWidths()" title="重置列宽">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+                    重置列宽
+                </button>
                 <button class="toggle-sidebar-btn" id="toggleSidebarBtn" onclick="toggleSidebar()">◀ 收起面板</button>
             </div>
             <div id="contentArea" class="table-wrapper">
@@ -255,282 +311,242 @@
         </div>
     </div>
 
-    <!-- ✅ 灯箱组件 -->
     <div class="lightbox" id="lightbox" onclick="if(event.target===this) closeLB()">
         <div class="lb-close" onclick="closeLB()" title="关闭 (Esc)">&times;</div>
         <img src="" class="lb-image" id="lbImg" draggable="false">
         <div class="lb-tools">
-            <button class="lb-btn" onclick="rotateLB(90)" title="顺时针旋转 90° (R)">↻</button>
+            <button class="lb-btn" onclick="rotateLB(90)" title="旋转">↻</button>
             <span id="zoomVal">100%</span>
-            <input type="range" id="zoomSlider" min="0.1" max="8" step="0.1" value="1" title="滚轮/+-键缩放">
+            <input type="range" id="zoomSlider" min="0.1" max="8" step="0.1" value="1">
         </div>
     </div>
 
 <script>
 // ==================== 🔒 禁用图片原生拖拽 ====================
 document.addEventListener('dragstart', e => {
-    if (e.target.tagName === 'IMG' && (e.target.closest('.render-view') || e.target.closest('.lightbox') || e.target.closest('.img-wrapper'))) {
-        e.preventDefault(); e.stopPropagation();
-    }
+    if (e.target.tagName === 'IMG') { e.preventDefault(); e.stopPropagation(); }
 }, true);
 
-// ==================== 💡 灯箱逻辑 ====================
-let lbScale = 1, lbRot = 0, lbX = 0, lbY = 0;
-let lbDragging = false, lbStartX = 0, lbStartY = 0;
-const lbEl = document.getElementById('lightbox');
-const lbImg = document.getElementById('lbImg');
-const zoomVal = document.getElementById('zoomVal');
-const zoomSlider = document.getElementById('zoomSlider');
+// ==================== 💡 灯箱 ====================
+let lbScale=1,lbRot=0,lbX=0,lbY=0,lbDragging=false,lbStartX=0,lbStartY=0;
+const lbEl=document.getElementById('lightbox'),lbImg=document.getElementById('lbImg');
+const zoomVal=document.getElementById('zoomVal'),zoomSlider=document.getElementById('zoomSlider');
+function openLB(url){lbImg.src=url;lbScale=1;lbRot=0;lbX=0;lbY=0;zoomSlider.value='1';zoomVal.textContent='100%';updateLBTransform();lbEl.style.display='flex';}
+function closeLB(){lbEl.style.display='none';lbImg.src='';lbDragging=false;}
+function rotateLB(deg){lbRot=(lbRot+deg+360)%360;updateLBTransform();}
+function updateLBTransform(){lbImg.style.transform=`translate(${lbX}px,${lbY}px) rotate(${lbRot}deg) scale(${lbScale})`;lbImg.style.transition=lbDragging?'none':'transform 0.15s ease-out';}
+zoomSlider.oninput=()=>{lbScale=parseFloat(zoomSlider.value);updateLBTransform();zoomVal.textContent=Math.round(lbScale*100)+'%';};
+lbEl.addEventListener('wheel',e=>{if(lbEl.style.display!=='flex')return;if(e.ctrlKey||e.metaKey){e.preventDefault();const d=e.deltaY>0?-0.15:0.15;lbScale=Math.max(0.1,Math.min(8,lbScale+d));zoomSlider.value=lbScale.toFixed(1);zoomVal.textContent=Math.round(lbScale*100)+'%';updateLBTransform();}else{e.preventDefault();lbX-=e.deltaX*0.8;lbY-=e.deltaY*0.8;updateLBTransform();}},{passive:false});
+lbImg.addEventListener('mousedown',e=>{if(e.button!==0)return;e.preventDefault();lbDragging=true;lbStartX=e.clientX-lbX;lbStartY=e.clientY-lbY;lbImg.style.cursor='grabbing';updateLBTransform();});
+document.addEventListener('mousemove',e=>{if(!lbDragging)return;lbX=e.clientX-lbStartX;lbY=e.clientY-lbStartY;updateLBTransform();});
+const stopLBDrag=()=>{if(lbDragging){lbDragging=false;lbImg.style.cursor='grab';updateLBTransform();}};
+document.addEventListener('mouseup',stopLBDrag);
+document.addEventListener('keydown',e=>{if(lbEl.style.display!=='flex')return;if(e.key==='Escape')closeLB();if(e.key==='+'||e.key==='='){e.preventDefault();lbScale=Math.min(8,lbScale+0.1);zoomSlider.value=lbScale.toFixed(1);zoomVal.textContent=Math.round(lbScale*100)+'%';updateLBTransform();}if(e.key==='-'||e.key==='_'){e.preventDefault();lbScale=Math.max(0.1,lbScale-0.1);zoomSlider.value=lbScale.toFixed(1);zoomVal.textContent=Math.round(lbScale*100)+'%';updateLBTransform();}if(e.key==='r'||e.key==='R'){e.preventDefault();rotateLB(90);}});
+document.getElementById('contentArea').addEventListener('click',e=>{const w=e.target.closest('.img-wrapper[data-img-url]');if(w)openLB(w.getAttribute('data-img-url'));});
 
-function openLB(url) {
-    lbImg.src = url;
-    lbScale = 1; lbRot = 0; lbX = 0; lbY = 0;
-    zoomSlider.value = '1'; zoomVal.textContent = '100%';
-    updateLBTransform();
-    lbEl.style.display = 'flex';
-}
+// ==================== ✅ 列宽拖拽（事件委托 + fixed布局） ====================
+const resizeOverlay = document.getElementById('resizeOverlay');
+let resizingTh = null, resizeStartX = 0, resizeStartW = 0, resizeColIndex = -1;
 
-function closeLB() {
-    lbEl.style.display = 'none';
-    lbImg.src = ''; lbDragging = false;
-}
-
-function rotateLB(deg) {
-    lbRot = (lbRot + deg + 360) % 360;
-    updateLBTransform();
-}
-
-function updateLBTransform() {
-    lbImg.style.transform = `translate(${lbX}px, ${lbY}px) rotate(${lbRot}deg) scale(${lbScale})`;
-    lbImg.style.transition = lbDragging ? 'none' : 'transform 0.15s ease-out';
-}
-
-zoomSlider.oninput = () => {
-    lbScale = parseFloat(zoomSlider.value);
-    updateLBTransform();
-    zoomVal.textContent = Math.round(lbScale * 100) + '%';
-};
-
-lbEl.addEventListener('wheel', e => {
-    if (lbEl.style.display !== 'flex') return;
-    if (e.ctrlKey || e.metaKey) {
+function initColResize(table) {
+    if (!table || table.dataset.resizeBound === 'true') return;
+    table.dataset.resizeBound = 'true';
+    
+    table.addEventListener('mousedown', e => {
+        const handle = e.target.closest('.col-resize-handle');
+        if (!handle) return;
+        
         e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.15 : 0.15;
-        lbScale = Math.max(0.1, Math.min(8, lbScale + delta));
-        zoomSlider.value = lbScale.toFixed(1);
-        zoomVal.textContent = Math.round(lbScale * 100) + '%';
-        updateLBTransform();
-    } else {
-        e.preventDefault();
-        lbX -= e.deltaX * 0.8; lbY -= e.deltaY * 0.8;
-        updateLBTransform();
-    }
-}, { passive: false });
+        e.stopPropagation();
+        
+        resizingTh = handle.closest('th');
+        if (!resizingTh) return;
+        
+        resizeStartX = e.clientX;
+        resizeStartW = resizingTh.getBoundingClientRect().width;
+        resizeColIndex = Array.from(resizingTh.parentNode.children).indexOf(resizingTh);
+        
+        handle.classList.add('active');
+        resizeOverlay.style.display = 'block';
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+    });
+}
 
-lbImg.addEventListener('mousedown', e => {
-    if (e.button !== 0) return;
-    e.preventDefault(); lbDragging = true;
-    lbStartX = e.clientX - lbX; lbStartY = e.clientY - lbY;
-    lbImg.style.cursor = 'grabbing'; updateLBTransform();
-});
 document.addEventListener('mousemove', e => {
-    if (!lbDragging) return;
-    lbX = e.clientX - lbStartX; lbY = e.clientY - lbStartY;
-    updateLBTransform();
+    if (!resizingTh) return;
+    e.preventDefault();
+    
+    const diff = e.clientX - resizeStartX;
+    const newW = Math.max(80, resizeStartW + diff);
+    
+    resizingTh.style.width = `${newW}px`;
+    resizingTh.style.minWidth = `${newW}px`;
+    resizingTh.style.maxWidth = `${newW}px`;
+    
+    if (resizeColIndex >= 0) {
+        const tbody = resizingTh.closest('table')?.querySelector('tbody');
+        if (tbody) {
+            const rows = tbody.rows;
+            for (let i = 0; i < rows.length; i++) {
+                const td = rows[i].cells[resizeColIndex];
+                if (td) {
+                    td.style.width = `${newW}px`;
+                    td.style.minWidth = `${newW}px`;
+                    td.style.maxWidth = `${newW}px`;
+                }
+            }
+        }
+    }
 });
-const stopLBDrag = () => { if (lbDragging) { lbDragging = false; lbImg.style.cursor = 'grab'; updateLBTransform(); } };
-document.addEventListener('mouseup', stopLBDrag);
-document.addEventListener('mouseleave', stopLBDrag);
 
-document.addEventListener('keydown', e => {
-    if (lbEl.style.display !== 'flex') return;
-    if (e.key === 'Escape') closeLB();
-    if (e.key === '+' || e.key === '=') { e.preventDefault(); lbScale = Math.min(8, lbScale + 0.1); zoomSlider.value = lbScale.toFixed(1); zoomVal.textContent = Math.round(lbScale * 100) + '%'; updateLBTransform(); }
-    if (e.key === '-' || e.key === '_') { e.preventDefault(); lbScale = Math.max(0.1, lbScale - 0.1); zoomSlider.value = lbScale.toFixed(1); zoomVal.textContent = Math.round(lbScale * 100) + '%'; updateLBTransform(); }
-    if (e.key === 'r' || e.key === 'R') { e.preventDefault(); rotateLB(90); }
+document.addEventListener('mouseup', () => {
+    if (resizingTh) {
+        resizingTh.querySelector('.col-resize-handle')?.classList.remove('active');
+        resizingTh = null;
+        resizeColIndex = -1;
+        resizeOverlay.style.display = 'none';
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+    }
 });
+
+function resetColumnWidths() {
+    document.querySelectorAll('.compare-table th.text-col, .compare-table td.text-col').forEach(el => {
+        el.style.width = '';
+        el.style.minWidth = '';
+        el.style.maxWidth = '';
+    });
+}
 
 // ==================== 全局状态 ====================
-let rawRows = [], headerLabels = [], colOrder = [], hiddenCols = new Set();
-let indexColOrig = -1, currentBaseCol = 0, isHeaderRow = false, rafPending = false;
-
-function getVisibleDataCols() { return colOrder.filter(i => i !== indexColOrig); }
-
-function scheduleRefresh() {
-    if (rafPending) return;
-    rafPending = true;
-    requestAnimationFrame(() => { rafPending = false; refreshAll(); });
+let rawRows=[],headerLabels=[],colOrder=[],hiddenCols=new Set();
+let indexColOrig=-1,currentBaseCol=0,isHeaderRow=false,rafPending=false;
+function getVisibleDataCols(){return colOrder.filter(i=>i!==indexColOrig);}
+function scheduleRefresh(){if(rafPending)return;rafPending=true;requestAnimationFrame(()=>{rafPending=false;refreshAll();});}
+function onRawInputChange(){const raw=document.getElementById('raw-input').value.trim();if(!raw){rawRows=[];renderEmptyState();renderColList();updateSelectors();return;}rawRows=parseTSV(raw);initColState();scheduleRefresh();}
+function onConfigChange(){isHeaderRow=document.getElementById('chkHeaderRow').checked;indexColOrig=parseInt(document.getElementById('selIndexCol').value,10);updateHeaderLabels();renderColList();scheduleRefresh();}
+function onBaseColChange(){currentBaseCol=parseInt(document.getElementById('baseColSelect').value,10);renderTable();}
+function refreshAll(){updateHeaderLabels();updateSelectors();renderColList();renderTable();}
+function initColState(){
+    const numCols=rawRows.length>0?Math.max(...rawRows.map(r=>r.length)):0;
+    const newOrder=[];for(let i=0;i<numCols;i++){if(!hiddenCols.has(i))newOrder.push(i);}
+    if(colOrder.length>0){const validOld=colOrder.filter(i=>i<numCols&&!hiddenCols.has(i));const addedNew=newOrder.filter(i=>!validOld.includes(i));colOrder=[...validOld,...addedNew];}else{colOrder=newOrder;}
+    hiddenCols=new Set([...hiddenCols].filter(i=>i<numCols));
+    isHeaderRow=document.getElementById('chkHeaderRow').checked;
+    indexColOrig=parseInt(document.getElementById('selIndexCol').value,10);
+    if(indexColOrig>=numCols){indexColOrig=-1;document.getElementById('selIndexCol').value='-1';}
 }
-
-function onRawInputChange() {
-    const raw = document.getElementById('raw-input').value.trim();
-    if (!raw) { rawRows = []; renderEmptyState(); renderColList(); updateSelectors(); return; }
-    rawRows = parseTSV(raw);
-    initColState();
+function updateHeaderLabels(){
+    const numCols=rawRows.length>0?Math.max(...rawRows.map(r=>r.length)):0;
+    headerLabels=[];for(let i=0;i<numCols;i++){headerLabels.push(isHeaderRow&&rawRows.length>0?(rawRows[0][i]||`列 ${i+1}`):`文本 ${String.fromCharCode(65+i)}`);}
+}
+function updateSelectors(){
+    const idxSel=document.getElementById('selIndexCol');const prevIdx=idxSel.value;
+    idxSel.innerHTML='<option value="-1">自动编号</option>';
+    for(let i=0;i<headerLabels.length;i++){const opt=document.createElement('option');opt.value=i;opt.textContent=headerLabels[i];idxSel.appendChild(opt);}
+    idxSel.value=(parseInt(prevIdx,10)>=0&&parseInt(prevIdx,10)<headerLabels.length)?prevIdx:'-1';
+    indexColOrig=parseInt(idxSel.value,10);
+    const baseSel=document.getElementById('baseColSelect');const prevBase=baseSel.value;baseSel.innerHTML='';
+    const dataCols=getVisibleDataCols();
+    dataCols.forEach((origIdx,visIdx)=>{const opt=document.createElement('option');opt.value=visIdx;opt.textContent=headerLabels[origIdx];baseSel.appendChild(opt);});
+    const nb=parseInt(prevBase,10);baseSel.value=(nb>=0&&nb<dataCols.length)?nb:'0';currentBaseCol=parseInt(baseSel.value,10);
+}
+function toggleColVisibility(origIdx){
+    if(hiddenCols.has(origIdx)){hiddenCols.delete(origIdx);if(!colOrder.includes(origIdx))colOrder.push(origIdx);}
+    else{hiddenCols.add(origIdx);colOrder=colOrder.filter(i=>i!==origIdx);}
+    if(currentBaseCol>=getVisibleDataCols().length)currentBaseCol=Math.max(0,getVisibleDataCols().length-1);
     scheduleRefresh();
 }
-
-function onConfigChange() {
-    isHeaderRow = document.getElementById('chkHeaderRow').checked;
-    indexColOrig = parseInt(document.getElementById('selIndexCol').value, 10);
-    updateHeaderLabels();
-    renderColList();
-    scheduleRefresh();
-}
-
-function onBaseColChange() {
-    currentBaseCol = parseInt(document.getElementById('baseColSelect').value, 10);
-    renderTable();
-}
-
-function refreshAll() { updateHeaderLabels(); updateSelectors(); renderColList(); renderTable(); }
-
-function initColState() {
-    const numCols = rawRows.length > 0 ? Math.max(...rawRows.map(r => r.length)) : 0;
-    const newOrder = [];
-    for (let i = 0; i < numCols; i++) { if (!hiddenCols.has(i)) newOrder.push(i); }
-    if (colOrder.length > 0) {
-        const validOld = colOrder.filter(i => i < numCols && !hiddenCols.has(i));
-        const addedNew = newOrder.filter(i => !validOld.includes(i));
-        colOrder = [...validOld, ...addedNew];
-    } else { colOrder = newOrder; }
-    hiddenCols = new Set([...hiddenCols].filter(i => i < numCols));
-    isHeaderRow = document.getElementById('chkHeaderRow').checked;
-    indexColOrig = parseInt(document.getElementById('selIndexCol').value, 10);
-    if (indexColOrig >= numCols) { indexColOrig = -1; document.getElementById('selIndexCol').value = '-1'; }
-}
-
-function updateHeaderLabels() {
-    const numCols = rawRows.length > 0 ? Math.max(...rawRows.map(r => r.length)) : 0;
-    headerLabels = [];
-    for (let i = 0; i < numCols; i++) {
-        headerLabels.push(isHeaderRow && rawRows.length > 0 ? (rawRows[0][i] || `列 ${i+1}`) : `文本 ${String.fromCharCode(65+i)}`);
-    }
-}
-
-function updateSelectors() {
-    const idxSel = document.getElementById('selIndexCol');
-    const prevIdx = idxSel.value;
-    idxSel.innerHTML = '<option value="-1">自动编号</option>';
-    for (let i = 0; i < headerLabels.length; i++) {
-        const opt = document.createElement('option'); opt.value = i; opt.textContent = headerLabels[i]; idxSel.appendChild(opt);
-    }
-    idxSel.value = (parseInt(prevIdx,10) >= 0 && parseInt(prevIdx,10) < headerLabels.length) ? prevIdx : '-1';
-    indexColOrig = parseInt(idxSel.value, 10);
-
-    const baseSel = document.getElementById('baseColSelect');
-    const prevBase = baseSel.value;
-    baseSel.innerHTML = '';
-    const dataCols = getVisibleDataCols();
-    dataCols.forEach((origIdx, visIdx) => {
-        const opt = document.createElement('option'); opt.value = visIdx; opt.textContent = headerLabels[origIdx]; baseSel.appendChild(opt);
-    });
-    const nb = parseInt(prevBase, 10);
-    baseSel.value = (nb >= 0 && nb < dataCols.length) ? nb : '0';
-    currentBaseCol = parseInt(baseSel.value, 10);
-}
-
-function toggleColVisibility(origIdx) {
-    if (hiddenCols.has(origIdx)) { hiddenCols.delete(origIdx); if (!colOrder.includes(origIdx)) colOrder.push(origIdx); }
-    else { hiddenCols.add(origIdx); colOrder = colOrder.filter(i => i !== origIdx); }
-    if (currentBaseCol >= getVisibleDataCols().length) currentBaseCol = Math.max(0, getVisibleDataCols().length - 1);
-    scheduleRefresh();
-}
-
-let dragSrcIdx = null;
-function onChipDragStart(e, oi) { dragSrcIdx = oi; e.target.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
-function onChipDragEnd(e) { e.target.classList.remove('dragging'); document.querySelectorAll('.col-chip').forEach(c => c.classList.remove('drag-over')); dragSrcIdx = null; }
-function onChipDragOver(e, oi) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragSrcIdx !== null && dragSrcIdx !== oi) e.currentTarget.classList.add('drag-over'); }
-function onChipDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
-function onChipDrop(e, toi) {
-    e.preventDefault(); e.currentTarget.classList.remove('drag-over');
-    if (dragSrcIdx === null || dragSrcIdx === toi) return;
-    const sp = colOrder.indexOf(dragSrcIdx), tp = colOrder.indexOf(toi);
-    if (sp === -1 || tp === -1) return;
-    colOrder.splice(sp, 1); colOrder.splice(tp, 0, dragSrcIdx);
-    scheduleRefresh();
-}
-
-function renderColList() {
-    const container = document.getElementById('colList');
-    if (headerLabels.length === 0) { container.innerHTML = '<div style="color:#aaa;font-size:12px;padding:8px 0;">输入数据后自动显示列配置</div>'; return; }
-    container.innerHTML = '';
-    const allIndices = Array.from({length: headerLabels.length}, (_,i) => i);
-    const visibleSet = new Set(colOrder);
-    const hiddenArr = allIndices.filter(i => !visibleSet.has(i));
-    [...colOrder, ...hiddenArr].forEach(origIdx => {
-        const isHidden = hiddenCols.has(origIdx);
-        const isIndexCol = origIdx === indexColOrig;
-        const label = isIndexCol ? `🔢 ${headerLabels[origIdx]}` : headerLabels[origIdx];
-        const chip = document.createElement('div');
-        chip.className = `col-chip${isHidden?' hidden-col':''}${isIndexCol?' index-col':''}`;
-        chip.draggable = !isHidden;
-        chip.innerHTML = `<span class="col-chip-name" title="${escapeAttr(headerLabels[origIdx])}">${escapeHtml(label)}</span><button class="col-chip-del" title="${isHidden?'恢复':'隐藏'}">${isHidden?'+':'×'}</button>`;
-        chip.querySelector('.col-chip-del').onclick = (e) => { e.stopPropagation(); toggleColVisibility(origIdx); };
-        if (!isHidden) {
-            chip.addEventListener('dragstart', e => onChipDragStart(e, origIdx));
-            chip.addEventListener('dragend', onChipDragEnd);
-            chip.addEventListener('dragover', e => onChipDragOver(e, origIdx));
-            chip.addEventListener('dragleave', onChipDragLeave);
-            chip.addEventListener('drop', e => onChipDrop(e, origIdx));
-        }
+let dragSrcIdx=null;
+function onChipDragStart(e,oi){dragSrcIdx=oi;e.target.classList.add('dragging');e.dataTransfer.effectAllowed='move';}
+function onChipDragEnd(e){e.target.classList.remove('dragging');document.querySelectorAll('.col-chip').forEach(c=>c.classList.remove('drag-over'));dragSrcIdx=null;}
+function onChipDragOver(e,oi){e.preventDefault();e.dataTransfer.dropEffect='move';if(dragSrcIdx!==null&&dragSrcIdx!==oi)e.currentTarget.classList.add('drag-over');}
+function onChipDragLeave(e){e.currentTarget.classList.remove('drag-over');}
+function onChipDrop(e,toi){e.preventDefault();e.currentTarget.classList.remove('drag-over');if(dragSrcIdx===null||dragSrcIdx===toi)return;const sp=colOrder.indexOf(dragSrcIdx),tp=colOrder.indexOf(toi);if(sp===-1||tp===-1)return;colOrder.splice(sp,1);colOrder.splice(tp,0,dragSrcIdx);scheduleRefresh();}
+function renderColList(){
+    const container=document.getElementById('colList');
+    if(headerLabels.length===0){container.innerHTML='<div style="color:#aaa;font-size:12px;padding:8px 0;">输入数据后自动显示</div>';return;}
+    container.innerHTML='';
+    const allIndices=Array.from({length:headerLabels.length},(_,i)=>i);
+    const visibleSet=new Set(colOrder);const hiddenArr=allIndices.filter(i=>!visibleSet.has(i));
+    [...colOrder,...hiddenArr].forEach(origIdx=>{
+        const isHidden=hiddenCols.has(origIdx);const isIndexCol=origIdx===indexColOrig;
+        const label=isIndexCol?`🔢 ${headerLabels[origIdx]}`:headerLabels[origIdx];
+        const chip=document.createElement('div');
+        chip.className=`col-chip${isHidden?' hidden-col':''}${isIndexCol?' index-col':''}`;chip.draggable=!isHidden;
+        chip.innerHTML=`<span class="col-chip-name" title="${escapeAttr(headerLabels[origIdx])}">${escapeHtml(label)}</span><button class="col-chip-del" title="${isHidden?'恢复':'隐藏'}">${isHidden?'+':'×'}</button>`;
+        chip.querySelector('.col-chip-del').onclick=(e)=>{e.stopPropagation();toggleColVisibility(origIdx);};
+        if(!isHidden){chip.addEventListener('dragstart',e=>onChipDragStart(e,origIdx));chip.addEventListener('dragend',onChipDragEnd);chip.addEventListener('dragover',e=>onChipDragOver(e,origIdx));chip.addEventListener('dragleave',onChipDragLeave);chip.addEventListener('drop',e=>onChipDrop(e,origIdx));}
         container.appendChild(chip);
     });
 }
+function toggleSidebar(){const sb=document.getElementById('configSidebar'),btn=document.getElementById('toggleSidebarBtn');sb.classList.toggle('collapsed');btn.textContent=sb.classList.contains('collapsed')?'▶ 展开面板':'◀ 收起面板';}
+function getDataRows(){return isHeaderRow?rawRows.slice(1):rawRows;}
+function renderEmptyState(){document.getElementById('contentArea').innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p>在左侧输入或导入数据即可实时预览</p></div>`;}
 
-function toggleSidebar() {
-    const sb = document.getElementById('configSidebar'), btn = document.getElementById('toggleSidebarBtn');
-    sb.classList.toggle('collapsed');
-    btn.textContent = sb.classList.contains('collapsed') ? '▶ 展开面板' : '◀ 收起面板';
+// ==================== ✅ mhchem 嵌套自动修复（纯函数，不修改原始数据） ====================
+function fixMhchemNesting(text) {
+    if (!text || !text.includes('\\ce{')) return text;
+    
+    let result = text;
+    let prev = '';
+    while (prev !== result) {
+        prev = result;
+        result = result.replace(
+            /\\ce\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}/g,
+            (fullMatch, inner) => {
+                if (!inner.includes('\\ce{')) return fullMatch;
+                const fixedInner = inner.replace(/\\ce\{([^{}]*)\}/g, '$1');
+                return '\\ce{' + fixedInner + '}';
+            }
+        );
+    }
+    return result;
 }
 
-function getDataRows() { return isHeaderRow ? rawRows.slice(1) : rawRows; }
-function renderEmptyState() {
-    document.getElementById('contentArea').innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p>在左侧输入或导入数据即可实时预览</p></div>`;
-}
-
-function renderTable() {
-    const dataRows = getDataRows();
-    const dataCols = getVisibleDataCols();
-    if (!dataRows.length || dataCols.length === 0) { renderEmptyState(); return; }
-
-    const baseOrigIdx = dataCols[currentBaseCol];
-    let tableHtml = `<table class="compare-table"><thead><tr>`;
-    const indexLabel = indexColOrig >= 0 ? headerLabels[indexColOrig] : '#';
-    tableHtml += `<th class="col-index">${escapeHtml(indexLabel)}</th>`;
-    dataCols.forEach((origIdx, visIdx) => {
-        const baseClass = visIdx === currentBaseCol ? ' base-col' : '';
-        const baseTag = visIdx === currentBaseCol ? ' 🎯' : '';
-        tableHtml += `<th class="text-col${baseClass}">${escapeHtml(headerLabels[origIdx])}${baseTag}</th>`;
+// ==================== 核心渲染 ====================
+function renderTable(){
+    const dataRows=getDataRows();const dataCols=getVisibleDataCols();
+    if(!dataRows.length||dataCols.length===0){renderEmptyState();return;}
+    const baseOrigIdx=dataCols[currentBaseCol];
+    
+    let tableHtml=`<table class="compare-table"><thead><tr>`;
+    const indexLabel=indexColOrig>=0?headerLabels[indexColOrig]:'#';
+    tableHtml+=`<th class="col-index">${escapeHtml(indexLabel)}</th>`;
+    dataCols.forEach((origIdx,visIdx)=>{
+        const baseClass=visIdx===currentBaseCol?' base-col':'';
+        const baseTag=visIdx===currentBaseCol?' 🎯':'';
+        tableHtml+=`<th class="text-col${baseClass}">${escapeHtml(headerLabels[origIdx])}${baseTag}<div class="col-resize-handle"></div></th>`;
     });
-    tableHtml += `</tr></thead><tbody>`;
+    tableHtml+=`</tr></thead><tbody>`;
 
-    dataRows.forEach((row, r) => {
-        let indexContent = indexColOrig >= 0 ? escapeHtml(row[indexColOrig] || '') : `<span style="color:#888;font-size:12px">${r + 1}</span>`;
-        const baseText = row[baseOrigIdx] || '';
-        const baseType = detectContentType(baseText);
-        const hasComplex = dataCols.some(oi => {
-            const t = detectContentType(row[oi] || '');
-            return t === 'latex' || t === 'markdown' || t === 'image' || t === 'subscript';
-        });
-
-        tableHtml += `<tr><td class="col-index">${indexContent}</td>`;
-        dataCols.forEach((origIdx, visIdx) => {
-            const text = row[origIdx] || '';
-            const type = detectContentType(text);
+    dataRows.forEach((row,r)=>{
+        let indexContent=indexColOrig>=0?escapeHtml(row[indexColOrig]||''):`<span style="color:#888;font-size:12px">${r+1}</span>`;
+        const baseText=row[baseOrigIdx]||'';const baseType=detectContentType(baseText);
+        const hasComplex=dataCols.some(oi=>{const t=detectContentType(row[oi]||'');return t==='latex'||t==='markdown'||t==='image'||t==='subscript';});
+        tableHtml+=`<tr><td class="col-index">${indexContent}</td>`;
+        dataCols.forEach((origIdx,visIdx)=>{
+            const originalText = row[origIdx] || '';
+            const type = detectContentType(originalText);
             const isBase = visIdx === currentBaseCol;
-            const isSame = text === baseText;
-            // Diff 仅对纯文本生效
-            const diffs = (!isBase && !isSame && type === 'plain' && baseType === 'plain') ? computeDiff(baseText, text) : null;
-
-            let statusBadge = isBase ? '<span class="status-badge status-base">基准</span>' : isSame ? '<span class="status-badge status-same">一致</span>' : '<span class="status-badge status-diff">差异</span>';
-            let sourceHtml = isBase ? escapeHtml(text) : diffs ? renderDiffSource(text, diffs, false) : escapeHtml(text);
-            const renderedHtml = renderContent(text, type);
-            const cellId = `cell-${r}-${visIdx}`;
-            const defaultTab = hasComplex ? 'render' : 'source';
-            const tdClass = isBase ? ' base-col' : '';
-
-            tableHtml += `<td class="text-col${tdClass}"><div class="cell-container">
+            const isSame = originalText === baseText;
+            const diffs = (!isBase && !isSame && type === 'plain' && baseType === 'plain') ? computeDiff(baseText, originalText) : null;
+            
+            let statusBadge = isBase ? '<span class="status-badge status-base">基准</span>' 
+                : isSame ? '<span class="status-badge status-same">一致</span>' 
+                : '<span class="status-badge status-diff">差异</span>';
+            
+            let sourceHtml = isBase ? escapeHtml(originalText) 
+                : diffs ? renderDiffSource(originalText, diffs, false) 
+                : escapeHtml(originalText);
+            
+            const renderedHtml = renderContent(originalText, type);
+            
+            const cellId=`cell-${r}-${visIdx}`;
+            const defaultTab=hasComplex?'render':'source';
+            const tdClass=isBase?' base-col':'';
+            tableHtml+=`<td class="text-col${tdClass}"><div class="cell-container">
                 <div class="cell-tabs">
                     <button class="cell-tab ${defaultTab==='source'?'active':''}" onclick="switchCellTab('${cellId}','source',this)">源码${statusBadge}</button>
                     <button class="cell-tab ${defaultTab==='render'?'active':''}" onclick="switchCellTab('${cellId}','render',this)">预览</button>
@@ -539,214 +555,134 @@ function renderTable() {
                 <div id="${cellId}-render" class="cell-body render-view" style="display:${defaultTab==='render'?'block':'none'}">${renderedHtml}</div>
             </div></td>`;
         });
-        tableHtml += `</tr>`;
+        tableHtml+=`</tr>`;
     });
-    tableHtml += `</tbody></table>`;
-    document.getElementById('contentArea').innerHTML = tableHtml;
-    requestAnimationFrame(() => { document.querySelectorAll('.render-view').forEach(el => doKaTeX(el)); });
+    tableHtml+=`</tbody></table>`;
+    
+    const contentArea=document.getElementById('contentArea');
+    contentArea.innerHTML=tableHtml;
+    
+    requestAnimationFrame(()=>{
+        const table=contentArea.querySelector('.compare-table');
+        if(table)initColResize(table);
+        document.querySelectorAll('.render-view').forEach(el=>doKaTeX(el));
+    });
 }
 
-// ==================== ✅ 核心：多图提取与内容渲染 ====================
+// ==================== LaTeX + Markdown ====================
+function preprocessLatex(text){
+    if(!text)return text;
+    let s=text;
+    s=s.replace(/\\\\([a-zA-Z])/g,'\\$1');
+    const hasDelimiter=/\$|\\\(|\\\[/.test(s);
+    if(!hasDelimiter&&/\\[a-zA-Z]+/.test(s)){s='$'+s+'$';}
+    return s;
+}
 
-const URL_RE = /^https?:\/\/[\w\-._~:/?#\[\]@!$&'()*+,;=%]+$/i;
-const MD_IMG_RE = /!\[[^\]]*\]\(([^)]+)\)/g;
-const LATEX_RE = /\$\$[\s\S]*?\$\$|\$[^$\n]+?\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]|\\[a-zA-Z]+\{/;
-const MD_RE = /[*_~`#>\-\[\]()!|]/;
-const SUBSCRIPT_RE = /[\w\d\)\]\}][\^_][\w\d\(]/;
+const KATEX_MACROS={
+    "\\bra":"\\langle #1 |","\\ket":"| #1 \\rangle","\\braket":"\\langle #1 | #2 \\rangle",
+    "\\Bra":"\\left\\langle #1 \\right|","\\Ket":"\\left| #1 \\right\\rangle",
+    "\\Braket":"\\left\\langle #1 \\middle| #2 \\right\\rangle",
+    "\\dv":"\\frac{d #1}{d #2}","\\pdv":"\\frac{\\partial #1}{\\partial #2}",
+    "\\order":"\\mathcal{O}\\left(#1\\right)","\\comm":"[#1, #2]","\\anticomm":"\\{#1, #2\\}",
+    "\\R":"\\mathbb{R}","\\N":"\\mathbb{N}","\\Z":"\\mathbb{Z}","\\Q":"\\mathbb{Q}","\\C":"\\mathbb{C}",
+    "\\eps":"\\varepsilon","\\phi":"\\varphi","\\ell":"\\ell",
+    "\\dif":"\\mathrm{d}","\\dd":"\\mathrm{d}","\\ii":"\\mathrm{i}","\\ee":"\\mathrm{e}","\\jj":"\\mathrm{j}",
+    "\\T":"\\mathrm{T}","\\tr":"\\operatorname{tr}","\\diag":"\\operatorname{diag}","\\rank":"\\operatorname{rank}",
+    "\\argmin":"\\operatorname{arg\\,min}","\\argmax":"\\operatorname{arg\\,max}",
+    "\\bbox":"\\htmlClass{bbox-#1}{#2}"
+};
 
-/**
- * 从单元格文本中提取所有图片 URL
- * 支持：换行分隔、逗号/分号分隔、Markdown ![alt](url) 语法、纯 URL 混合文本
- */
-function extractImageUrls(text) {
-    if (!text) return [];
-    const urls = [];
-    const seen = new Set();
-    
-    // 1. 先提取 Markdown 图片语法
-    const mdMatches = text.matchAll(MD_IMG_RE);
-    for (const m of mdMatches) {
-        const u = m[1].trim();
-        if (u && !seen.has(u)) { seen.add(u); urls.push(u); }
-    }
-    
-    // 2. 按换行、逗号、分号分割剩余文本
-    const segments = text.split(/[\n\r,;]+/).map(s => s.trim()).filter(Boolean);
-    for (const seg of segments) {
-        // 去除可能的 Markdown 图片语法残留
-        const clean = seg.replace(/!\[[^\]]*\]\([^)]*\)/g, '').trim();
-        if (clean && URL_RE.test(clean) && !seen.has(clean)) {
-            seen.add(clean);
-            urls.push(clean);
-        }
-    }
-    
+function doKaTeX(el){
+    if(typeof renderMathInElement!=='function')return;
+    try{renderMathInElement(el,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}],throwOnError:false,trust:true,strict:false,macros:KATEX_MACROS});}catch(e){}
+}
+
+function renderMarkdownWithLatex(text){
+    const latexStore=[];
+    const protectedText=text.replace(/(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\])/g,(match)=>{latexStore.push(match);return`%%LATEX_BLOCK_${latexStore.length-1}%%`;});
+    let html='';try{html=marked.parse(protectedText);}catch(e){html=`<p>${escapeHtml(protectedText)}</p>`;}
+    html=html.replace(/%%LATEX_BLOCK_(\d+)%%/g,(_,idx)=>latexStore[parseInt(idx)]);
+    return html;
+}
+
+// ==================== 内容检测 ====================
+const URL_RE=/^https?:\/\/[\w\-._~:/?#\[\]@!$&'()*+,;=%]+$/i;
+const MD_IMG_RE=/!\[[^\]]*\]\(([^)]+)\)/g;
+const LATEX_RE=/\$\$[\s\S]*?\$\$|\$[^$\n]+?\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]|\\[a-zA-Z]+\{/;
+const MD_RE=/[*_~`#>\-\[\]()!|]/;
+const SUBSCRIPT_RE=/[\w\d\)\]\}][\^_][\w\d\(]/;
+
+function extractImageUrls(text){
+    if(!text)return[];const urls=[];const seen=new Set();
+    const mdMatches=text.matchAll(MD_IMG_RE);
+    for(const m of mdMatches){const u=m[1].trim();if(u&&!seen.has(u)){seen.add(u);urls.push(u);}}
+    const segments=text.split(/[\n\r,;]+/).map(s=>s.trim()).filter(Boolean);
+    for(const seg of segments){const clean=seg.replace(/!\[[^\]]*\]\([^)]*\)/g,'').trim();if(clean&&URL_RE.test(clean)&&!seen.has(clean)){seen.add(clean);urls.push(clean);}}
     return urls;
 }
 
-/**
- * 增强型内容类型检测
- * 当单元格包含至少一个有效图片 URL 时，优先识别为 image 类型
- */
-function detectContentType(text) {
-    if (!text) return 'empty';
-    const t = text.trim();
-    if (!t) return 'empty';
+function detectContentType(text){
+    if(!text)return'empty';const t=text.trim();if(!t)return'empty';
+    if(extractImageUrls(t).length>0)return'image';
+    if(LATEX_RE.test(t)||/\\[a-zA-Z]+/.test(t))return'latex';
+    if(SUBSCRIPT_RE.test(t))return'subscript';
+    if(MD_RE.test(t))return'markdown';
+    return'plain';
+}
+
+function renderImageGrid(text){
+    const urls=extractImageUrls(text);
+    if(urls.length===0)return'<span style="color:#ccc;font-style:italic;">(无有效图片)</span>';
+    return`<div class="img-grid">${urls.map((u,i)=>`<div class="img-wrapper" data-img-url="${escapeAttr(u)}"><img src="${escapeAttr(u)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=img-error>⚠️ 加载失败</div>'"><span class="img-label">${i+1}</span></div>`).join('')}</div>`;
+}
+
+function renderSubscript(text){
+    if(!text||!SUBSCRIPT_RE.test(text))return null;
+    let l=text.replace(/([A-Za-z])_(\d+)/g,'\\mathrm{$1}_{$2}').replace(/\b(log|ln|lg|sin|cos|tan|cot|sec|csc|lim|max|min|sup|inf|det|dim|ker|gcd)\s*_\s*([a-zA-Z0-9]+)/gi,'\\$1_{$2}').replace(/\b(log|ln|lg|sin|cos|tan|cot|sec|csc|lim|max|min|sup|inf|det|dim|ker|gcd)\s*\^\s*([a-zA-Z0-9]+)/gi,'\\$1^{$2}').replace(/([a-zA-Z0-9])\s*_\s*([a-zA-Z0-9]+)/g,'$1_{$2}').replace(/(\([^\)]+\))\s*\^\s*([a-zA-Z0-9]+)/g,'$1^{$2}').replace(/([a-zA-Z0-9])\s*\^\s*([a-zA-Z0-9]+)/g,'$1^{$2}');
+    if(!l.startsWith('$'))l=`$${l}$`;return l;
+}
+
+function renderContent(text, type){
+    if(!text)return'<span style="color:#ccc;font-style:italic;">(空)</span>';
+    if(type==='image')return renderImageGrid(text);
+    if(type==='subscript'){const lr=renderSubscript(text);if(lr)return lr;}
     
-    // 优先检测图片（支持多图）
-    if (extractImageUrls(t).length > 0) return 'image';
+    const fixedText = fixMhchemNesting(text);
     
-    if (LATEX_RE.test(t)) return 'latex';
-    if (SUBSCRIPT_RE.test(t)) return 'subscript';
-    if (MD_RE.test(t)) return 'markdown';
-    return 'plain';
+    if(type==='latex')return preprocessLatex(fixedText);
+    if(type==='markdown')return renderMarkdownWithLatex(fixedText);
+    return preprocessLatex(escapeHtml(fixedText));
 }
 
-/**
- * 渲染多图网格（参照 Session 对比工具样式）
- */
-function renderImageGrid(text) {
-    const urls = extractImageUrls(text);
-    if (urls.length === 0) {
-        return '<span style="color:#ccc;font-style:italic;">(无有效图片)</span>';
-    }
-    return `<div class="img-grid">${urls.map((u, i) => {
-        const safeUrl = escapeAttr(u);
-        return `<div class="img-wrapper" onclick="openLB('${safeUrl}')">
-            <img src="${safeUrl}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=img-error>⚠️ 加载失败</div>'">
-            <span class="img-label">${i + 1}</span>
-        </div>`;
-    }).join('')}</div>`;
-}
-
-function renderSubscript(text) {
-    if (!text || !SUBSCRIPT_RE.test(text)) return null;
-    let l = text.replace(/([A-Za-z])_(\d+)/g,'\\mathrm{$1}_{$2}').replace(/\b(log|ln|lg|sin|cos|tan|cot|sec|csc|lim|max|min|sup|inf|det|dim|ker|gcd)\s*_\s*([a-zA-Z0-9]+)/gi,'\\$1_{$2}').replace(/\b(log|ln|lg|sin|cos|tan|cot|sec|csc|lim|max|min|sup|inf|det|dim|ker|gcd)\s*\^\s*([a-zA-Z0-9]+)/gi,'\\$1^{$2}').replace(/([a-zA-Z0-9])\s*_\s*([a-zA-Z0-9]+)/g,'$1_{$2}').replace(/(\([^\)]+\))\s*\^\s*([a-zA-Z0-9]+)/g,'$1^{$2}').replace(/([a-zA-Z0-9])\s*\^\s*([a-zA-Z0-9]+)/g,'$1^{$2}');
-    if (!l.startsWith('$')) l=`$${l}$`;
-    try { const d=document.createElement('div'); d.textContent=l; if(typeof renderMathInElement==='function') renderMathInElement(d,{delimiters:[{left:'$',right:'$',display:false}],throwOnError:true}); return l; } catch(e) { return null; }
-}
-
-function renderContent(text, type) {
-    if (!text) return '<span style="color:#ccc;font-style:italic;">(空)</span>';
-    
-    // ✅ 多图渲染入口
-    if (type === 'image') {
-        return renderImageGrid(text);
-    }
-    
-    if (type === 'subscript') { const lr = renderSubscript(text); if (lr) return escapeHtml(lr); }
-    
-    let h = escapeHtml(text);
-    h = h.replace(/^### (.+)$/gm,'<h4>$1</h4>').replace(/^## (.+)$/gm,'<h3>$1</h3>').replace(/^# (.+)$/gm,'<h2>$1</h2>');
-    h = h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/~~(.+?)~~/g,'<del>$1</del>').replace(/`(.+?)`/g,'<code>$1</code>');
-    h = h.replace(/^\> (.+)$/gm,'<blockquote>$1</blockquote>').replace(/^\- (.+)$/gm,'<li>$1</li>').replace(/(<li>.*<\/li>)/s,'<ul>$1</ul>');
-    return h;
-}
-
-// ==================== 核心解析与清洗工具 ====================
-
-function cleanCellText(text) {
-    if (!text) return '';
-    let s = String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    return s.trim();
-}
-
-function escapeTSVCell(text) {
-    if (text == null) return '';
-    const str = String(text);
-    if (/[\n\r\t"]/.test(str)) {
-        return '"' + str.replace(/"/g, '""') + '"';
-    }
-    return str;
-}
-
-function parseTSV(text) {
-    if (!text || typeof text !== 'string') return [];
-    const rows = [];
-    let currentRow = [];
-    let currentCell = '';
-    let inQuote = false;
-    let i = 0;
-
-    while (i < text.length) {
-        const c = text[i];
-        const nextC = text[i + 1];
-
-        if (inQuote) {
-            if (c === '"' && nextC === '"') { currentCell += '"'; i++; }
-            else if (c === '"') { inQuote = false; }
-            else { currentCell += c; }
-        } else {
-            if (c === '"') { inQuote = true; }
-            else if (c === '\t') { currentRow.push(cleanCellText(currentCell)); currentCell = ''; }
-            else if (c === '\n' || c === '\r') {
-                if (c === '\r' && nextC === '\n') i++;
-                currentRow.push(cleanCellText(currentCell));
-                currentCell = '';
-                if (currentRow.some(cell => cell !== '')) rows.push(currentRow);
-                currentRow = [];
-            } else { currentCell += c; }
-        }
+// ==================== 解析工具 ====================
+function cleanCellText(text){if(!text)return'';return String(text).replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();}
+function escapeTSVCell(text){if(text==null)return'';const str=String(text);return/[\n\r\t"]/.test(str)?'"'+str.replace(/"/g,'""')+'"':str;}
+function parseTSV(text){
+    if(!text||typeof text!=='string')return[];
+    const rows=[];let currentRow=[],currentCell='',inQuote=false,i=0;
+    while(i<text.length){
+        const c=text[i],nextC=text[i+1];
+        if(inQuote){if(c==='"'&&nextC==='"'){currentCell+='"';i++;}else if(c==='"'){inQuote=false;}else{currentCell+=c;}}
+        else{if(c==='"'){inQuote=true;}else if(c==='\t'){currentRow.push(cleanCellText(currentCell));currentCell='';}else if(c==='\n'||c==='\r'){if(c==='\r'&&nextC==='\n')i++;currentRow.push(cleanCellText(currentCell));currentCell='';if(currentRow.some(cell=>cell!==''))rows.push(currentRow);currentRow=[];}else{currentCell+=c;}}
         i++;
     }
-
-    currentRow.push(cleanCellText(currentCell));
-    if (currentRow.some(cell => cell !== '')) rows.push(currentRow);
-    return rows;
+    currentRow.push(cleanCellText(currentCell));if(currentRow.some(cell=>cell!==''))rows.push(currentRow);return rows;
 }
-
-function handleFile(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-        try {
-            const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-            const ws = wb.Sheets[wb.SheetNames[0]];
-            const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-            
-            const cleanedData = data
-                .map(row => row.map(cell => cleanCellText(String(cell ?? ''))))
-                .filter(row => row.some(cell => cell !== ''));
-                
-            const tsvContent = cleanedData
-                .map(r => r.map(cell => escapeTSVCell(cell)).join('\t'))
-                .join('\n');
-                
-            document.getElementById('raw-input').value = tsvContent;
-            onRawInputChange();
-        } catch (err) { 
-            alert('文件解析失败: ' + err.message); 
-        }
-    };
+function handleFile(file){
+    if(!file)return;const reader=new FileReader();
+    reader.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});const cleanedData=data.map(row=>row.map(cell=>cleanCellText(String(cell??'')))).filter(row=>row.some(cell=>cell!==''));const tsvContent=cleanedData.map(r=>r.map(cell=>escapeTSVCell(cell)).join('\t')).join('\n');document.getElementById('raw-input').value=tsvContent;onRawInputChange();}catch(err){alert('文件解析失败: '+err.message);}};
     reader.readAsArrayBuffer(file);
 }
 
-// ==================== Diff & KaTeX & 工具函数 ====================
-function doKaTeX(el) { if(typeof renderMathInElement!=='function') return; try{renderMathInElement(el,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}],throwOnError:false,trust:true});}catch(e){} }
-
-const dmp = new diff_match_patch();
-function computeDiff(a,b) { if(a===b) return null; const d=dmp.diff_main(a,b); dmp.diff_cleanupSemantic(d); return d; }
-
-function renderDiffSource(text, diffs, isBase) {
-    if(!diffs) return escapeHtml(text); let h='';
-    for(const[op,data] of diffs){const e=escapeHtml(data); if(op===0)h+=e; else if(op===1&&!isBase)h+=`<span class="diff-ins">${e}</span>`; else if(op===-1&&isBase)h+=`<span class="diff-del">${e}</span>`;} return h;
-}
-
-function switchCellTab(id,tab,btn) {
-    const p=btn.closest('.cell-container'); p.querySelectorAll('.cell-tab').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
-    p.querySelector(`#${id}-source`).style.display=tab==='source'?'block':'none'; p.querySelector(`#${id}-render`).style.display=tab==='render'?'block':'none';
-    if(tab==='render') requestAnimationFrame(()=>doKaTeX(p.querySelector(`#${id}-render`)));
-}
-
-function escapeHtml(s) { return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function escapeAttr(s) { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
-
-function clearAll() {
-    document.getElementById('raw-input').value=''; document.getElementById('fileInput').value='';
-    rawRows=[]; headerLabels=[]; colOrder=[]; hiddenCols.clear(); indexColOrig=-1; currentBaseCol=0; isHeaderRow=false;
-    document.getElementById('chkHeaderRow').checked=false; document.getElementById('selIndexCol').value='-1';
-    renderEmptyState(); renderColList(); updateSelectors();
-}
+// ==================== Diff & 工具 ====================
+const dmp=new diff_match_patch();
+function computeDiff(a,b){if(a===b)return null;const d=dmp.diff_main(a,b);dmp.diff_cleanupSemantic(d);return d;}
+function renderDiffSource(text,diffs,isBase){if(!diffs)return escapeHtml(text);let h='';for(const[op,data]of diffs){const e=escapeHtml(data);if(op===0)h+=e;else if(op===1&&!isBase)h+=`<span class="diff-ins">${e}</span>`;else if(op===-1&&isBase)h+=`<span class="diff-del">${e}</span>`;}return h;}
+function switchCellTab(id,tab,btn){const p=btn.closest('.cell-container');p.querySelectorAll('.cell-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');p.querySelector(`#${id}-source`).style.display=tab==='source'?'block':'none';p.querySelector(`#${id}-render`).style.display=tab==='render'?'block':'none';if(tab==='render')requestAnimationFrame(()=>doKaTeX(p.querySelector(`#${id}-render`)));}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function escapeAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function clearAll(){document.getElementById('raw-input').value='';document.getElementById('fileInput').value='';rawRows=[];headerLabels=[];colOrder=[];hiddenCols.clear();indexColOrig=-1;currentBaseCol=0;isHeaderRow=false;document.getElementById('chkHeaderRow').checked=false;document.getElementById('selIndexCol').value='-1';renderEmptyState();renderColList();updateSelectors();}
 </script>
 </body>
 </html>
