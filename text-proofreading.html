@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>安安小工具系列 | 内容解析校对 (定宽+筛选版)</title>
+    <title>安安小工具系列 | 内容解析校对</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
@@ -59,7 +59,7 @@
         .toggle-sidebar-btn:hover,.reset-col-btn:hover{border-color:var(--primary);color:var(--primary)}
         .toggle-sidebar-btn{margin-left:auto}
         
-        /* === 筛选面板样式 === */
+        /* === 新增：筛选面板样式 === */
         .filter-panel{display:flex;align-items:center;gap:6px;padding:4px 10px;background:#f0f4f8;border:1px solid #dbeafe;border-radius:6px;flex-wrap:wrap;flex:1;min-width:280px}
         .filter-panel label{font-size:12px;font-weight:600;color:#1e40af;white-space:nowrap}
         .filter-input{flex:1;min-width:120px;padding:3px 8px;border:1px solid #d0d7de;border-radius:4px;font-size:12px;outline:none;background:#fff}
@@ -72,6 +72,7 @@
         .filter-tag{display:inline-flex;align-items:center;gap:3px;padding:1px 8px;background:#dbeafe;color:#1e40af;border-radius:10px;font-size:11px;font-weight:500;animation:tagIn .2s ease}
         .filter-tag span{cursor:pointer;font-weight:700;opacity:.6;font-size:13px;line-height:1;margin-left:2px}.filter-tag span:hover{opacity:1;color:#dc2626}
         @keyframes tagIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+        /* ========================== */
 
         .table-wrapper{flex:1;border-radius:8px;box-shadow:0 3px 15px rgba(0,0,0,.08);background:white;overflow:auto;min-height:0;position:relative}
         .compare-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
@@ -82,15 +83,7 @@
         .compare-table thead th.col-index{z-index:40!important;background:var(--index-header-bg);background-clip:padding-box}
         .compare-table th.base-col{background:#eff6ff!important;color:var(--primary);border-bottom:2px solid var(--primary)}
         .compare-table td.base-col{background:#fafcff}
-        
-        /* ✅ 核心修改：固定默认列宽，移除 max-content 自动撑开 */
-        .text-col{
-            min-width:220px;
-            width:280px;      /* 默认理想宽度 */
-            max-width:600px;  /* 允许拖拽拉宽的上限 */
-            position:relative;
-        }
-
+        .text-col{min-width:150px;width:200px;position:relative}
         .col-resize-handle{position:absolute;right:-4px;top:0;bottom:0;width:8px;cursor:col-resize;z-index:50;user-select:none;background:transparent;transition:background .15s}
         .col-resize-handle:hover,.col-resize-handle.active{background:var(--primary);opacity:.6}
         .resize-overlay{position:fixed;inset:0;z-index:99999;cursor:col-resize;display:none;background:transparent}
@@ -148,12 +141,7 @@
         #zoomVal{color:white;min-width:52px;text-align:center;font-size:14px;font-variant-numeric:tabular-nums}
         #zoomSlider{width:120px;height:4px;appearance:none;background:rgba(255,255,255,.3);border-radius:2px;cursor:pointer;outline:none}
         #zoomSlider::-webkit-slider-thumb{appearance:none;width:16px;height:16px;border-radius:50%;background:white;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)}
-        @media(max-width:768px){
-            .tool-title{font-size:15px}#back-to-box span{display:none}.workspace{flex-direction:column}.config-sidebar{width:100%!important;min-width:100%!important;max-height:40vh;border-right:none;border-bottom:1px solid var(--gray-200)}.config-sidebar.collapsed{max-height:0;min-width:100%!important}.preview-area{padding:4px}
-            /* ✅ 移动端适配更窄的默认宽度 */
-            .text-col{min-width:200px;width:220px}
-            .img-wrapper{width:80px;height:80px}.lb-close{top:10px;right:10px}.lb-tools{padding:6px 12px;gap:8px}#zoomSlider{width:80px}.filter-panel{min-width:auto}
-        }
+        @media(max-width:768px){.tool-title{font-size:15px}#back-to-box span{display:none}.workspace{flex-direction:column}.config-sidebar{width:100%!important;min-width:100%!important;max-height:40vh;border-right:none;border-bottom:1px solid var(--gray-200)}.config-sidebar.collapsed{max-height:0;min-width:100%!important}.preview-area{padding:4px}.text-col{min-width:100px;width:150px}.img-wrapper{width:80px;height:80px}.lb-close{top:10px;right:10px}.lb-tools{padding:6px 12px;gap:8px}#zoomSlider{width:80px}.filter-panel{min-width:auto}}
     </style>
 </head>
 <body>
@@ -191,18 +179,20 @@
             <div class="preview-toolbar">
                 <div class="base-selector"><label for="baseColSelect">基准列：</label><select id="baseColSelect"></select></div>
                 
-                <!-- 编号筛选面板 -->
+                <!-- 🆕 新增：编号筛选面板 -->
                 <div class="filter-panel">
                     <label>🔍 编号筛选:</label>
-                    <input type="text" id="filterInput" class="filter-input" placeholder="输入编号，多个用逗号/空格分隔">
+                    <input type="text" id="filterInput" class="filter-input" placeholder="输入编号，多个用逗号/空格/换行分隔">
                     <button class="filter-btn apply" id="btnApplyFilter">筛选</button>
                     <button class="filter-btn clear" id="btnClearFilter">清除</button>
                     <span class="filter-status" id="filterStatus"></span>
                 </div>
+                <!-- 🆕 END -->
 
                 <button class="reset-col-btn" onclick="resetColumnWidths()" title="重置列宽"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>重置列宽</button>
                 <button class="toggle-sidebar-btn" id="toggleSidebarBtn" onclick="toggleSidebar()">◀ 收起面板</button>
             </div>
+            <!-- 🆕 筛选标签容器 -->
             <div class="filter-tags" id="filterTags"></div>
             
             <div id="contentArea" class="table-wrapper">
@@ -244,91 +234,48 @@ document.addEventListener('mouseup',stopLBDrag);
 document.addEventListener('keydown',e=>{if(lbEl.style.display!=='flex')return;if(e.key==='Escape')closeLB();if(e.key==='+'||e.key==='='){e.preventDefault();lbScale=Math.min(8,lbScale+0.1);zoomSlider.value=lbScale.toFixed(1);zoomVal.textContent=Math.round(lbScale*100)+'%';updateLBTransform();}if(e.key==='-'||e.key==='_'){e.preventDefault();lbScale=Math.max(0.1,lbScale-0.1);zoomSlider.value=lbScale.toFixed(1);zoomVal.textContent=Math.round(lbScale*100)+'%';updateLBTransform();}if(e.key==='r'||e.key==='R'){e.preventDefault();rotateLB(90);}});
 document.getElementById('contentArea').addEventListener('click',e=>{const w=e.target.closest('.img-wrapper[data-img-url]');if(w)openLB(w.getAttribute('data-img-url'));});
 
-// ==================== ✅ 列宽拖拽（已优化：仅修改当前列，支持重置） ====================
+// ==================== ✅ 列宽拖拽 ====================
 const resizeOverlay=document.getElementById('resizeOverlay');
 let resizingTh=null,resizeStartX=0,resizeStartW=0,resizeColIndex=-1;
-
-function initColResize(table){
-    if(!table||table.dataset.resizeBound==='true')return;
-    table.dataset.resizeBound='true';
-    table.addEventListener('mousedown',e=>{
-        const handle=e.target.closest('.col-resize-handle');
-        if(!handle)return;
-        e.preventDefault();e.stopPropagation();
-        resizingTh=handle.closest('th');
-        if(!resizingTh)return;
-        resizeStartX=e.clientX;
-        resizeStartW=resizingTh.getBoundingClientRect().width;
-        resizeColIndex=Array.from(resizingTh.parentNode.children).indexOf(resizingTh);
-        handle.classList.add('active');
-        resizeOverlay.style.display='block';
-        document.body.style.cursor='col-resize';
-        document.body.style.userSelect='none';
-    });
-}
-
-document.addEventListener('mousemove',e=>{
-    if(!resizingTh)return;
-    e.preventDefault();
-    const diff=e.clientX-resizeStartX;
-    const newW=Math.max(180,resizeStartW+diff); // 最小180px防过窄
-    
-    // ✅ 关键：使用 cssText + !important 确保拖拽宽度覆盖CSS默认值
-    const widthStyle = `width:${newW}px!important;min-width:${newW}px!important;max-width:${newW}px!important;`;
-    resizingTh.style.cssText = widthStyle;
-    
-    // 同步更新对应 tbody 的所有单元格
-    const tbody=resizingTh.closest('table')?.querySelector('tbody');
-    if(tbody){
-        const rows=tbody.rows;
-        for(let i=0;i<rows.length;i++){
-            const td=rows[i].cells[resizeColIndex];
-            if(td) td.style.cssText = widthStyle;
-        }
-    }
-});
-
-document.addEventListener('mouseup',()=>{
-    if(resizingTh){
-        resizingTh.querySelector('.col-resize-handle')?.classList.remove('active');
-        resizingTh=null;resizeColIndex=-1;
-        resizeOverlay.style.display='none';
-        document.body.style.cursor='';
-        document.body.style.userSelect='';
-    }
-});
-
-// ✅ 重置列宽：清除所有内联样式，回归CSS定义的280px默认值
-function resetColumnWidths(){
-    document.querySelectorAll('.compare-table th.text-col,.compare-table td.text-col')
-        .forEach(el=>el.style.cssText='');
-}
+function initColResize(table){if(!table||table.dataset.resizeBound==='true')return;table.dataset.resizeBound='true';table.addEventListener('mousedown',e=>{const handle=e.target.closest('.col-resize-handle');if(!handle)return;e.preventDefault();e.stopPropagation();resizingTh=handle.closest('th');if(!resizingTh)return;resizeStartX=e.clientX;resizeStartW=resizingTh.getBoundingClientRect().width;resizeColIndex=Array.from(resizingTh.parentNode.children).indexOf(resizingTh);handle.classList.add('active');resizeOverlay.style.display='block';document.body.style.cursor='col-resize';document.body.style.userSelect='none';});}
+document.addEventListener('mousemove',e=>{if(!resizingTh)return;e.preventDefault();const diff=e.clientX-resizeStartX;const newW=Math.max(80,resizeStartW+diff);resizingTh.style.width=`${newW}px`;resizingTh.style.minWidth=`${newW}px`;resizingTh.style.maxWidth=`${newW}px`;if(resizeColIndex>=0){const tbody=resizingTh.closest('table')?.querySelector('tbody');if(tbody){const rows=tbody.rows;for(let i=0;i<rows.length;i++){const td=rows[i].cells[resizeColIndex];if(td){td.style.width=`${newW}px`;td.style.minWidth=`${newW}px`;td.style.maxWidth=`${newW}px`;}}}}});
+document.addEventListener('mouseup',()=>{if(resizingTh){resizingTh.querySelector('.col-resize-handle')?.classList.remove('active');resizingTh=null;resizeColIndex=-1;resizeOverlay.style.display='none';document.body.style.cursor='';document.body.style.userSelect='';}});
+function resetColumnWidths(){document.querySelectorAll('.compare-table th.text-col,.compare-table td.text-col').forEach(el=>{el.style.width='';el.style.minWidth='';el.style.maxWidth='';});}
 
 // ==================== 全局状态 ====================
 let rawRows=[],headerLabels=[],colOrder=[],hiddenCols=new Set();
 let indexColOrig=-1,currentBaseCol=0,isHeaderRow=false,rafPending=false;
-let activeFilterIds=[],isFilterActive=false;
+
+// 🆕 筛选状态
+let activeFilterIds = []; // 当前生效的筛选ID列表(字符串)
+let isFilterActive = false;
 
 function getVisibleDataCols(){return colOrder.filter(i=>i!==indexColOrig);}
 function scheduleRefresh(){if(rafPending)return;rafPending=true;requestAnimationFrame(()=>{rafPending=false;refreshAll();});}
 
+// 🆕 获取有效编号（统一自动序号与自定义列）
 function getEffectiveId(dataRowIndex) {
     const dataRows = getDataRows();
     if (dataRowIndex < 0 || dataRowIndex >= dataRows.length) return '';
     const row = dataRows[dataRowIndex];
-    if (indexColOrig >= 0 && indexColOrig < row.length) return String(row[indexColOrig] ?? '').trim();
+    if (indexColOrig >= 0 && indexColOrig < row.length) {
+        return String(row[indexColOrig] ?? '').trim();
+    }
     return String(dataRowIndex + 1);
 }
 
+// 🆕 获取过滤后的数据行（保留原始索引用于Diff）
 function getFilteredDataRows() {
     const allRows = getDataRows();
     if (!isFilterActive || activeFilterIds.length === 0) return allRows;
     const filterSet = new Set(activeFilterIds);
     const result = [];
     for (let i = 0; i < allRows.length; i++) {
-        if (filterSet.has(getEffectiveId(i))) {
+        const eid = getEffectiveId(i);
+        if (filterSet.has(eid)) {
+            // 附加原始索引，确保渲染时能正确关联
             const rowCopy = [...allRows[i]];
-            rowCopy._origIdx = i;
+            rowCopy._origIdx = i; 
             result.push(rowCopy);
         }
     }
@@ -346,9 +293,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(chkHeader)chkHeader.addEventListener('change',onConfigChange);
     if(selIndex)selIndex.addEventListener('change',onConfigChange);
     if(baseSel)baseSel.addEventListener('change',onBaseColChange);
+    
+    // 🆕 初始化筛选器
     initFilterPanel();
 });
 
+// 🆕 筛选面板逻辑
 function initFilterPanel() {
     const input = document.getElementById('filterInput');
     const btnApply = document.getElementById('btnApplyFilter');
@@ -356,38 +306,26 @@ function initFilterPanel() {
     const status = document.getElementById('filterStatus');
     const tagsContainer = document.getElementById('filterTags');
 
-    const updateStatus = () => {
+    const doFilter = () => {
+        const raw = input.value.trim();
+        if (!raw) { doClear(); return; }
+        // 支持逗号、中文逗号、空格、换行分隔
+        const ids = raw.split(/[,，\s\n]+/).map(s => s.trim()).filter(Boolean);
+        const uniqueIds = [...new Set(ids)];
+        if (uniqueIds.length === 0) { doClear(); return; }
+
+        activeFilterIds = uniqueIds;
+        isFilterActive = true;
+        renderFilterTags(uniqueIds, tagsContainer);
+        
+        // 触发重绘
+        renderTable();
+        
+        // 更新统计
         const filteredCount = getFilteredDataRows().length;
         const totalCount = getDataRows().length;
         status.textContent = `显示 ${filteredCount} / ${totalCount} 条`;
         status.style.color = filteredCount > 0 ? '#166534' : '#dc2626';
-    };
-
-    const renderTags = (ids) => {
-        tagsContainer.innerHTML = ids.map(id => 
-            `<span class="filter-tag">${escapeHtml(id)}<span data-rm="${escapeAttr(id)}">×</span></span>`
-        ).join('');
-        tagsContainer.querySelectorAll('[data-rm]').forEach(el => {
-            el.onclick = () => {
-                activeFilterIds = activeFilterIds.filter(fid => fid !== el.dataset.rm);
-                if (activeFilterIds.length === 0) { doClear(); return; }
-                renderTags(activeFilterIds);
-                renderTable();
-                updateStatus();
-            };
-        });
-    };
-
-    const doFilter = () => {
-        const raw = input.value.trim();
-        if (!raw) { doClear(); return; }
-        const ids = [...new Set(raw.split(/[,，\s\n]+/).map(s => s.trim()).filter(Boolean))];
-        if (ids.length === 0) { doClear(); return; }
-        activeFilterIds = ids;
-        isFilterActive = true;
-        renderTags(ids);
-        renderTable();
-        updateStatus();
     };
 
     const doClear = () => {
@@ -399,6 +337,26 @@ function initFilterPanel() {
         renderTable();
     };
 
+    const removeTag = (id) => {
+        activeFilterIds = activeFilterIds.filter(fid => fid !== id);
+        if (activeFilterIds.length === 0) { doClear(); return; }
+        renderFilterTags(activeFilterIds, tagsContainer);
+        renderTable();
+        const filteredCount = getFilteredDataRows().length;
+        const totalCount = getDataRows().length;
+        status.textContent = `显示 ${filteredCount} / ${totalCount} 条`;
+        status.style.color = filteredCount > 0 ? '#166534' : '#dc2626';
+    };
+
+    function renderFilterTags(ids, container) {
+        container.innerHTML = ids.map(id => 
+            `<span class="filter-tag">${escapeHtml(id)}<span data-rm="${escapeAttr(id)}">×</span></span>`
+        ).join('');
+        container.querySelectorAll('[data-rm]').forEach(el => {
+            el.onclick = () => removeTag(el.dataset.rm);
+        });
+    }
+
     btnApply.onclick = doFilter;
     btnClear.onclick = doClear;
     input.addEventListener('keydown', e => { if (e.key === 'Enter') doFilter(); });
@@ -408,13 +366,18 @@ function onRawInputChange(){
     const raw=document.getElementById('raw-input').value.trim();
     if(!raw){rawRows=[];renderEmptyState();renderColList();updateSelectors();return;}
     rawRows=parseTSV(raw);initColState();
+    // 🆕 数据变更时清除筛选
     activeFilterIds=[];isFilterActive=false;
     document.getElementById('filterInput').value='';
     document.getElementById('filterTags').innerHTML='';
     document.getElementById('filterStatus').textContent='';
     scheduleRefresh();
 }
-function onConfigChange(){isHeaderRow=document.getElementById('chkHeaderRow').checked;indexColOrig=parseInt(document.getElementById('selIndexCol').value,10);updateHeaderLabels();renderColList();scheduleRefresh();}
+function onConfigChange(){
+    isHeaderRow=document.getElementById('chkHeaderRow').checked;
+    indexColOrig=parseInt(document.getElementById('selIndexCol').value,10);
+    updateHeaderLabels();renderColList();scheduleRefresh();
+}
 function onBaseColChange(){currentBaseCol=parseInt(document.getElementById('baseColSelect').value,10);renderTable();}
 function refreshAll(){updateHeaderLabels();updateSelectors();renderColList();renderTable();}
 function initColState(){const numCols=rawRows.length>0?Math.max(...rawRows.map(r=>r.length)):0;const newOrder=[];for(let i=0;i<numCols;i++){if(!hiddenCols.has(i))newOrder.push(i);}if(colOrder.length>0){const validOld=colOrder.filter(i=>i<numCols&&!hiddenCols.has(i));const addedNew=newOrder.filter(i=>!validOld.includes(i));colOrder=[...validOld,...addedNew];}else{colOrder=newOrder;}hiddenCols=new Set([...hiddenCols].filter(i=>i<numCols));isHeaderRow=document.getElementById('chkHeaderRow').checked;indexColOrig=parseInt(document.getElementById('selIndexCol').value,10);if(indexColOrig>=numCols){indexColOrig=-1;document.getElementById('selIndexCol').value='-1';}}
@@ -433,8 +396,12 @@ function getDataRows(){return isHeaderRow?rawRows.slice(1):rawRows;}
 function renderEmptyState(){document.getElementById('contentArea').innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p>在左侧输入或导入数据即可实时预览</p></div>`;}
 
 // =====================================================================
-// 🚀 核心渲染引擎 v3.0
+// 🚀 核心渲染引擎 v3.0 — 融合《一致性评测》渲染细则
 // =====================================================================
+
+/**
+ * 【细则三.1】Unicode 归一化
+ */
 function unicodeNormalize(text) {
     if (!text) return text;
     let s = text;
@@ -448,6 +415,10 @@ function unicodeNormalize(text) {
     s = s.replace(/©/g, '(c)').replace(/®/g, '(r)').replace(/™/g, '(tm)');
     return s;
 }
+
+/**
+* 【细则一.3】符号渲染映射表
+ */
 function normalizeMathSymbols(text) {
     if (!text) return text;
     const map = {
@@ -489,6 +460,7 @@ function normalizeMathSymbols(text) {
     }
     return text;
 }
+
 function matchBrace(s, pos) {
     if (pos >= s.length || s[pos] !== '{') return -1;
     let depth = 0;
@@ -498,6 +470,7 @@ function matchBrace(s, pos) {
     }
     return -1;
 }
+
 function wrapNakedLatex(text) {
     if (!text) return text;
     text = text.replace(/([^a-zA-Z\\])(sin|cos|tan|log|ln|lim|max|min)(frac\{)/g, '$1$2 \\$3');
@@ -506,26 +479,37 @@ function wrapNakedLatex(text) {
     text = text.replace(new RegExp('([^\\\\a-zA-Z])(' + braceCmds + ')(\\{)', 'g'), '$1\\$2$3');
     text = text.replace(new RegExp('^(' + braceCmds + ')(\\{)', 'gm'), '\\$1$2');
     text = text.replace(/\\{2,}([a-zA-Z])/g, '\\$1');
-    const prot = []; let pi = 0;
+    const prot = [];
+    let pi = 0;
     text = text.replace(/\$\$[\s\S]*?\$\$/g, m => { prot.push(m); return '%%P' + (pi++) + '%%'; });
     text = text.replace(/\$[^$\n]+?\$/g, m => { prot.push(m); return '%%P' + (pi++) + '%%'; });
     text = text.replace(/\\\([\s\S]*?\\\)/g, m => { prot.push(m); return '%%P' + (pi++) + '%%'; });
     text = text.replace(/\\\[[\s\S]*?\\\]/g, m => { prot.push(m); return '%%P' + (pi++) + '%%'; });
-    text = text.replace(/(\\begin\{[^}]+\}[\s\S]*?\\end\{[^}]+\})/g, m => { prot.push('$$' + m + '$$'); return '%%P' + (pi++) + '%%'; });
+    text = text.replace(/(\\begin\{[^}]+\}[\s\S]*?\\end\{[^}]+\})/g, m => {
+        const wrapped = '$$' + m + '$$';
+        prot.push(wrapped); return '%%P' + (pi++) + '%%';
+    });
     text = text.replace(/^([^\n]*\\(?:frac|sum|prod|int|left|sin|cos|quad|tau|alpha|beta|gamma|delta|theta|omega|Omega|times|ge|le|infty|div|cdot|sqrt|binom|mathrm|mathbf)[^\n]*[}\d)\]a-zA-Z])\s*$/gm, m => {
         if (m.includes('$') || m.includes('%%P')) return m;
-        if ((m.match(/[\u4e00-\u9fff]/g) || []).length > m.length * 0.3) return m;
-        prot.push('$$' + m.trim() + '$$'); return '%%P' + (pi++) + '%%';
+        const chineseCount = (m.match(/[\u4e00-\u9fff]/g) || []).length;
+        if (chineseCount > m.length * 0.3) return m;
+        const wrapped = '$$' + m.trim() + '$$';
+        prot.push(wrapped); return '%%P' + (pi++) + '%%';
     });
     const fracRe = /\\(?:frac|sqrt|binom)\{/g;
     let fracMatch, result4 = '', lastIdx4 = 0;
     while ((fracMatch = fracRe.exec(text)) !== null) {
         const cmdStart = fracMatch.index;
-        let end = matchBrace(text, cmdStart + fracMatch[0].length - 1);
+        const bracePos = fracMatch.index + fracMatch[0].length - 1;
+        let end = matchBrace(text, bracePos);
         if (end === -1) continue;
         if (fracMatch[0].includes('frac') || fracMatch[0].includes('binom')) {
-            let p = end; while (p < text.length && text[p] === ' ') p++;
-            if (p < text.length && text[p] === '{') { const e2 = matchBrace(text, p); if (e2 !== -1) end = e2; }
+            let p = end;
+            while (p < text.length && text[p] === ' ') p++;
+            if (p < text.length && text[p] === '{') {
+                const end2 = matchBrace(text, p);
+                if (end2 !== -1) end = end2;
+            }
         }
         const tail = text.substring(end);
         const contMatch = tail.match(/^(?:[^\n，。；]*?(?:\\[a-zA-Z]+(?:\{[^}]*\})*|[0-9]+))/);
@@ -533,40 +517,60 @@ function wrapNakedLatex(text) {
         const expr = text.substring(cmdStart, end);
         if (expr.includes('$') || expr.includes('%%P')) { fracRe.lastIndex = end; continue; }
         result4 += text.substring(lastIdx4, cmdStart) + ' $' + expr + '$ ';
-        lastIdx4 = end; fracRe.lastIndex = end;
+        lastIdx4 = end;
+        fracRe.lastIndex = end;
     }
-    text = result4 + text.substring(lastIdx4);
+    result4 += text.substring(lastIdx4);
+    text = result4;
     const cmdRe5 = /\\[a-zA-Z]+/g;
     let cmdMatch5, result5 = '', lastIdx5 = 0;
     while ((cmdMatch5 = cmdRe5.exec(text)) !== null) {
         const cs = cmdMatch5.index;
+        let ce = cmdMatch5.index + cmdMatch5[0].length;
         if (text.substring(Math.max(0, cs - 2), cs).includes('$')) continue;
-        let pos5 = cs + cmdMatch5[0].length;
-        while (pos5 < text.length && text[pos5] === '{') { const be = matchBrace(text, pos5); if (be === -1) break; pos5 = be; }
+        let pos5 = ce;
+        while (pos5 < text.length && text[pos5] === '{') {
+            const be = matchBrace(text, pos5);
+            if (be === -1) break;
+            pos5 = be;
+        }
         while (pos5 < text.length && (text[pos5] === '_' || text[pos5] === '^')) {
             pos5++;
-            if (pos5 < text.length && text[pos5] === '{') { const be2 = matchBrace(text, pos5); if (be2 !== -1) pos5 = be2; }
-            else if (pos5 < text.length && /[0-9a-zA-Z]/.test(text[pos5])) pos5++;
+            if (pos5 < text.length && text[pos5] === '{') {
+                const be2 = matchBrace(text, pos5);
+                if (be2 !== -1) pos5 = be2;
+            } else if (pos5 < text.length && /[0-9a-zA-Z]/.test(text[pos5])) {
+                pos5++;
+            }
         }
         const expr5 = text.substring(cs, pos5);
-        if (expr5.trim().length < 4 || expr5.includes('$') || expr5.includes('%%P') || cs < lastIdx5) continue;
+        if (expr5.trim().length < 4) continue;
+        if (expr5.includes('$') || expr5.includes('%%P')) continue;
+        if (cs < lastIdx5) continue;
         result5 += text.substring(lastIdx5, cs) + ' $' + expr5.trim() + '$ ';
-        lastIdx5 = pos5; cmdRe5.lastIndex = pos5;
+        lastIdx5 = pos5;
+        cmdRe5.lastIndex = pos5;
     }
-    text = result5 + text.substring(lastIdx5);
+    result5 += text.substring(lastIdx5);
+    text = result5;
     text = text.replace(/(?<![\\$a-zA-Z])([a-zA-Z][a-zA-Z0-9()]*(?:[_^](?:\{[^}]*\}|[0-9a-zA-Z]))(?:[_^](?:\{[^}]*\}|[0-9a-zA-Z]))*)/g, (m, expr, offset) => {
         if (!expr.includes('_') && !expr.includes('^')) return m;
         if (m.includes('$') || m.includes('%%P')) return m;
-        if ((text.substring(Math.max(0, offset - 100), offset).match(/\$/g) || []).length % 2 === 1) return m;
-        if (expr.length < 4 || (/^[a-z]+_[a-z]+$/i.test(expr) && !expr.includes('{'))) return m;
+        const leftContext = text.substring(Math.max(0, offset - 100), offset);
+        const dollarCount = (leftContext.match(/\$/g) || []).length;
+        if (dollarCount % 2 === 1) return m;
+        if (expr.length < 4) return m;
+        if (/^[a-z]+_[a-z]+$/i.test(expr) && !expr.includes('{')) return m;
         return ' $' + expr + '$ ';
     });
     text = text.replace(/%%P(\d+)%%/g, (_, i) => prot[parseInt(i)]);
     text = text.replace(/\$\s+\$/g, '');
     return text;
 }
+
 function escapeHtmlButKeepLatex(text) {
-    const latexBlocks = []; let idx = 0;
+    const latexBlocks = [];
+    let idx = 0;
     text = text.replace(/\$\$([\s\S]*?)\$\$/g, m => { latexBlocks.push(m); return '%%LATEX' + (idx++) + '%%'; });
     text = text.replace(/\$([^$\n]+?)\$/g, m => { latexBlocks.push(m); return '%%LATEX' + (idx++) + '%%'; });
     text = text.replace(/\\\[([\s\S]*?)\\\]/g, m => { latexBlocks.push(m); return '%%LATEX' + (idx++) + '%%'; });
@@ -575,31 +579,39 @@ function escapeHtmlButKeepLatex(text) {
     text = text.replace(/%%LATEX(\d+)%%/g, (_, i) => latexBlocks[parseInt(i)]);
     return text;
 }
+
 function renderMixedContent(text) {
     if (!text || !text.trim()) return '<span style="color:#ccc;font-style:italic;">(空)</span>';
     let cleaned = unicodeNormalize(text);
     cleaned = cleaned.replace(/\[\[[\w_]+\]\]/g, '').replace(/\{\{[\w_]+\(.*?\)\}\}/g, '');
     cleaned = normalizeMathSymbols(cleaned);
     cleaned = wrapNakedLatex(cleaned);
+    let html = '';
     try {
         marked.setOptions({ pedantic: false, gfm: true, breaks: true, headerIds: false, sanitize: false });
-        return marked.parse(cleaned);
+        html = marked.parse(cleaned);
     } catch (e) {
-        return '<p>' + escapeHtmlButKeepLatex(cleaned) + '</p>';
+        html = '<p>' + escapeHtmlButKeepLatex(cleaned) + '</p>';
     }
+    return html;
 }
+
 function doKaTeX(el) {
     if (typeof renderMathInElement !== 'function') return;
     try {
         renderMathInElement(el, {
             delimiters: [
-                { left: '$$', right: '$$', display: true }, { left: '\\[', right: '\\]', display: true },
-                { left: '$', right: '$', display: false }, { left: '\\(', right: '\\)', display: false }
+                { left: '$$', right: '$$', display: true },
+                { left: '\\[', right: '\\]', display: true },
+                { left: '$', right: '$', display: false },
+                { left: '\\(', right: '\\)', display: false }
             ],
-            throwOnError: false, trust: false, strict: false, macros: KATEX_MACROS
+            throwOnError: false, trust: false, strict: false,
+            macros: KATEX_MACROS
         });
     } catch (e) { console.warn('KaTeX error:', e); }
 }
+
 const KATEX_MACROS = {
     "\\bra": "\\langle #1 |", "\\ket": "| #1 \\rangle", "\\braket": "\\langle #1 | #2 \\rangle",
     "\\Bra": "\\left\\langle #1 \\right|", "\\Ket": "\\left| #1 \\right\\rangle",
@@ -617,6 +629,8 @@ const KATEX_MACROS = {
     "\\write": "\\text{[写操作已禁用]}", "\\read": "\\text{[读操作已禁用]}",
     "\\openout": "\\text{[文件输出已禁用]}", "\\cssId": "\\text{[DOM操作已禁用]}", "\\class": "\\text{[DOM操作已禁用]}"
 };
+
+// ==================== 内容类型检测 & 图片处理 ====================
 function detectContentType(text) { if (!text) return 'empty'; const t = text.trim(); if (!t) return 'empty'; if (isPureImageContent(t)) return 'image'; return 'rich'; }
 const URL_RE = /^https?:\/\/[\w\-._~:/?#\[\]@!$&'()*+,;=%]+$/i;
 const MD_IMG_RE = /!\[[^\]]*\]\(([^)]+)\)/g;
@@ -625,16 +639,21 @@ function isPureImageContent(text) { if (!text) return false; const urls = extrac
 function renderImageGrid(text) { const urls = extractImageUrls(text); if (!urls.length) return '<span style="color:#ccc;font-style:italic;">(无有效图片)</span>'; return `<div class="img-grid">${urls.map((u, i) => `<div class="img-wrapper" data-img-url="${escapeAttr(u)}"><img src="${escapeAttr(u)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=img-error>⚠️ 加载失败</div>'"><span class="img-label">${i + 1}</span></div>`).join('')}</div>`; }
 function renderContent(text, type) { if (!text || !text.trim()) return '<span style="color:#ccc;font-style:italic;">(空)</span>'; if (type === 'image' || isPureImageContent(text)) return renderImageGrid(text); return renderMixedContent(text); }
 
-// ==================== 分片渲染表格（已适配筛选 + 固定列宽） ====================
+// ==================== 🆕 分片渲染表格（已适配筛选） ====================
 function renderTable() {
-    const dataRows = getFilteredDataRows();
+    // ✅ 关键改动：使用过滤后的数据源
+    const dataRows = getFilteredDataRows(); 
     const dataCols = getVisibleDataCols();
-    if (!dataRows.length || !dataCols.length) {
+    
+    if (!dataRows.length || !dataCols.length) { 
         if (isFilterActive && activeFilterIds.length > 0 && getDataRows().length > 0) {
             document.getElementById('contentArea').innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><p>未找到匹配的编号<br><small style="color:#aaa">请检查筛选条件或清除筛选</small></p></div>`;
-        } else { renderEmptyState(); }
-        return;
+        } else {
+            renderEmptyState(); 
+        }
+        return; 
     }
+    
     const baseOrigIdx = dataCols[currentBaseCol];
     const contentArea = document.getElementById('contentArea');
     let tableHtml = `<table class="compare-table"><thead><tr>`;
@@ -645,25 +664,30 @@ function renderTable() {
         const baseTag = visIdx === currentBaseCol ? ' 🎯' : '';
         tableHtml += `<th class="text-col${baseClass}">${escapeHtml(headerLabels[origIdx])}${baseTag}<div class="col-resize-handle"></div></th>`;
     });
-    tableHtml += `</tr></thead><tbody></tbody></table>`;
-    contentArea.innerHTML = tableHtml;
+    tableHtml += `</tr></thead><tbody>`;
+    contentArea.innerHTML = tableHtml + `</tbody></table>`;
     const tbody = contentArea.querySelector('tbody');
     const table = contentArea.querySelector('.compare-table');
     if (table) initColResize(table);
     
     const BATCH_SIZE = 50;
     let rowIndex = 0;
+    
     function renderBatch() {
         const end = Math.min(rowIndex + BATCH_SIZE, dataRows.length);
         let batchHtml = '';
         for (let r = rowIndex; r < end; r++) {
             const row = dataRows[r];
+            // ✅ 使用原始索引来获取正确的编号和Diff基准
             const origIdx = row._origIdx !== undefined ? row._origIdx : r;
-            let indexContent = indexColOrig >= 0
-                ? escapeHtml(row[indexColOrig] || '')
+            
+            let indexContent = indexColOrig >= 0 
+                ? escapeHtml(row[indexColOrig] || '') 
                 : `<span style="color:#888;font-size:12px">${origIdx + 1}</span>`;
+                
             const baseText = row[baseOrigIdx] || '';
             const hasComplex = dataCols.some(oi => { const t = detectContentType(row[oi] || ''); return t === 'rich' || t === 'image'; });
+            
             batchHtml += `<tr><td class="col-index">${indexContent}</td>`;
             dataCols.forEach((colOrigIdx, visIdx) => {
                 const originalText = row[colOrigIdx] || '';
@@ -675,6 +699,7 @@ function renderTable() {
                 let statusBadge = isBase ? '<span class="status-badge status-base">基准</span>' : isSame ? '<span class="status-badge status-same">一致</span>' : '<span class="status-badge status-diff">差异</span>';
                 let sourceHtml = isBase ? escapeHtml(originalText) : diffs ? renderDiffSource(originalText, diffs, false) : escapeHtml(originalText);
                 const renderedHtml = renderContent(originalText, type);
+                // ✅ cell ID 使用原始索引，避免筛选后ID冲突
                 const cellId = `cell-${origIdx}-${visIdx}`;
                 const defaultTab = hasComplex ? 'render' : 'source';
                 const tdClass = isBase ? ' base-col' : '';
@@ -684,8 +709,8 @@ function renderTable() {
         }
         tbody.insertAdjacentHTML('beforeend', batchHtml);
         rowIndex = end;
-        const startRow = Math.max(1, rowIndex - BATCH_SIZE + 1);
-        tbody.querySelectorAll(`tr:nth-child(n+${startRow}) .render-view`).forEach(el => doKaTeX(el));
+        const newRenderViews = tbody.querySelectorAll(`tr:nth-child(n+${rowIndex - BATCH_SIZE + 1}) .render-view`);
+        newRenderViews.forEach(el => doKaTeX(el));
         if (rowIndex < dataRows.length) {
             if ('requestIdleCallback' in window) requestIdleCallback(renderBatch, { timeout: 50 });
             else setTimeout(renderBatch, 0);
@@ -708,18 +733,19 @@ function renderDiffSource(text, diffs, isBase) { if (!diffs) return escapeHtml(t
 function switchCellTab(id, tab, btn) { const p = btn.closest('.cell-container'); p.querySelectorAll('.cell-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); p.querySelector(`#${id}-source`).style.display = tab === 'source' ? 'block' : 'none'; p.querySelector(`#${id}-render`).style.display = tab === 'render' ? 'block' : 'none'; if (tab === 'render') requestAnimationFrame(() => doKaTeX(p.querySelector(`#${id}-render`))); }
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function escapeAttr(s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-function clearAll() {
-    document.getElementById('raw-input').value = '';
-    document.getElementById('fileInput').value = '';
-    rawRows = []; headerLabels = []; colOrder = []; hiddenCols.clear();
-    indexColOrig = -1; currentBaseCol = 0; isHeaderRow = false;
-    document.getElementById('chkHeaderRow').checked = false;
-    document.getElementById('selIndexCol').value = '-1';
+function clearAll() { 
+    document.getElementById('raw-input').value = ''; 
+    document.getElementById('fileInput').value = ''; 
+    rawRows = []; headerLabels = []; colOrder = []; hiddenCols.clear(); 
+    indexColOrig = -1; currentBaseCol = 0; isHeaderRow = false; 
+    document.getElementById('chkHeaderRow').checked = false; 
+    document.getElementById('selIndexCol').value = '-1'; 
+    // 🆕 清除筛选状态
     activeFilterIds = []; isFilterActive = false;
     document.getElementById('filterInput').value = '';
     document.getElementById('filterTags').innerHTML = '';
     document.getElementById('filterStatus').textContent = '';
-    renderEmptyState(); renderColList(); updateSelectors();
+    renderEmptyState(); renderColList(); updateSelectors(); 
 }
 </script>
 </body>
