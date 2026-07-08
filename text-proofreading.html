@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>安安小工具系列 | 内容解析校对</title>
+    <title>安安小工具系列 | 内容解析校对 (定宽+筛选版)</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
@@ -13,262 +13,159 @@
     <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
     
     <style>
-        :root {
-            --primary: #1d4ed8;
-            --gray-100: #f8fafc;
-            --gray-200: #e5e7eb;
-            --gray-900: #111827;
-            --header-bg: #ffffff;
-            --index-bg: #fafafa;
-            --index-header-bg: #ffffff;
-            --top-bar-h: 48px;
-            --sidebar-w: 280px;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root{--primary:#1d4ed8;--gray-100:#f8fafc;--gray-200:#e5e7eb;--gray-900:#111827;--header-bg:#fff;--index-bg:#fafafa;--index-header-bg:#fff;--top-bar-h:48px;--sidebar-w:280px}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--gray-100);color:var(--gray-900);line-height:1.6;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+        .top-bar{height:var(--top-bar-h);min-height:var(--top-bar-h);max-height:var(--top-bar-h);background:#fff;border-bottom:1px solid #eef1f5;display:flex;align-items:center;justify-content:space-between;padding:0 20px;position:relative;z-index:100;flex-shrink:0}
+        #back-to-box{display:flex;align-items:center;gap:6px;background:none;border:none;padding:4px 8px;color:#1a2b4a;font-size:14px;font-weight:600;cursor:pointer;border-radius:4px;transition:all .2s ease;white-space:nowrap}
+        #back-to-box:hover{background:#f0f4f8;color:#1d4ed8}
+        .tool-title{font-size:18px;color:#1a2b4a;margin:0;font-weight:600;position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap}
+        .header-actions{display:flex;gap:8px;align-items:center}
+        .btn-action{padding:5px 12px;border:1px solid #d0d7de;color:#555;background:#fff;border-radius:6px;font-size:12px;cursor:pointer;transition:all .2s}
+        .btn-action:hover{border-color:var(--primary);color:var(--primary);background:#f8fbff}
+        .workspace{flex:1;display:flex;overflow:hidden;min-height:0}
+        .config-sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:#fff;border-right:1px solid var(--gray-200);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;transition:width .3s,min-width .3s,opacity .3s}
+        .config-sidebar.collapsed{width:0;min-width:0;opacity:0;overflow:hidden;border-right:none}
+        .sidebar-header{padding:12px 16px;font-weight:600;font-size:14px;background:#f8fafc;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+        .sidebar-body{flex:1;overflow-y:auto;padding:16px}
+        .input-section{margin-bottom:16px}
+        .input-label{font-size:12px;font-weight:600;color:#555;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+        .input-hint{font-size:11px;color:#888;margin-bottom:6px;line-height:1.4}
+        #raw-input{width:100%;height:140px;padding:10px;font-family:monospace;font-size:12px;border:1px solid var(--gray-200);border-radius:6px;resize:vertical;outline:none;background:#fcfdfd}
+        #raw-input:focus{border-color:var(--primary)}
+        .file-btn{width:100%;padding:8px;border:2px dashed #d0d7de;border-radius:6px;background:#fff;color:#666;cursor:pointer;text-align:center;font-size:12px;transition:all .2s;margin-top:8px}
+        .file-btn:hover{border-color:var(--primary);color:var(--primary)}
+        .config-group{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #f0f0f0}
+        .config-group:last-child{border-bottom:none}
+        .config-option{display:flex;align-items:center;gap:6px;font-size:13px;color:#555;margin-bottom:8px}
+        .config-option input[type="checkbox"]{width:16px;height:16px;cursor:pointer;accent-color:var(--primary);flex-shrink:0}
+        .config-option select{flex:1;padding:4px 8px;border:1px solid #d0d7de;border-radius:4px;font-size:12px;outline:none;min-width:0}
+        .config-option select:focus{border-color:var(--primary)}
+        .col-manager-title{font-size:12px;font-weight:600;color:#333;margin-bottom:8px}
+        .col-list{display:flex;flex-direction:column;gap:4px}
+        .col-chip{display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--gray-200);border-radius:6px;background:#fff;font-size:12px;cursor:grab;user-select:none;transition:all .15s}
+        .col-chip:active{cursor:grabbing}.col-chip.dragging{opacity:.4;border-style:dashed}.col-chip.drag-over{border-color:var(--primary);background:#eff6ff;transform:translateY(2px)}
+        .col-chip-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .col-chip-del{width:20px;height:20px;border-radius:50%;border:none;background:#fee2e2;color:#991b1b;font-size:14px;cursor:pointer;padding:0;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1}
+        .col-chip-del:hover{background:#dc2626;color:#fff}
+        .col-chip.hidden-col{opacity:.4;text-decoration:line-through;border-style:dashed;cursor:default}
+        .col-chip.hidden-col .col-chip-del{background:#f3f4f6;color:#999}
+        .col-chip.index-col{border-color:#bfdbfe;background:#eff6ff}
+        .preview-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;padding:8px;position:relative}
+        .preview-toolbar{display:flex;align-items:center;gap:8px;padding:0 4px 8px;flex-shrink:0;flex-wrap:wrap}
+        .base-selector{display:flex;align-items:center;gap:6px;font-size:13px;color:#555}
+        .base-selector select{padding:4px 8px;border:1px solid #d0d7de;border-radius:4px;font-size:13px;outline:none;cursor:pointer;min-width:100px}
+        .toggle-sidebar-btn,.reset-col-btn{padding:4px 10px;border:1px solid #d0d7de;background:#fff;border-radius:4px;font-size:12px;cursor:pointer;color:#555;transition:all .2s;display:inline-flex;align-items:center;gap:4px}
+        .toggle-sidebar-btn:hover,.reset-col-btn:hover{border-color:var(--primary);color:var(--primary)}
+        .toggle-sidebar-btn{margin-left:auto}
         
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: var(--gray-100); color: var(--gray-900); line-height: 1.6;
-            height: 100vh; display: flex; flex-direction: column; overflow: hidden; 
-        }
+        /* === 筛选面板样式 === */
+        .filter-panel{display:flex;align-items:center;gap:6px;padding:4px 10px;background:#f0f4f8;border:1px solid #dbeafe;border-radius:6px;flex-wrap:wrap;flex:1;min-width:280px}
+        .filter-panel label{font-size:12px;font-weight:600;color:#1e40af;white-space:nowrap}
+        .filter-input{flex:1;min-width:120px;padding:3px 8px;border:1px solid #d0d7de;border-radius:4px;font-size:12px;outline:none;background:#fff}
+        .filter-input:focus{border-color:var(--primary)}
+        .filter-btn{padding:3px 10px;border:none;border-radius:4px;font-size:11px;cursor:pointer;font-weight:600;transition:all .15s}
+        .filter-btn.apply{background:var(--primary);color:#fff}.filter-btn.apply:hover{background:#1e40af}
+        .filter-btn.clear{background:#fff;border:1px solid #d0d7de;color:#666}.filter-btn.clear:hover{border-color:#ef4444;color:#ef4444}
+        .filter-status{font-size:11px;color:#64748b;white-space:nowrap}
+        .filter-tags{display:flex;flex-wrap:wrap;gap:4px;padding:0 4px 6px;min-height:0}
+        .filter-tag{display:inline-flex;align-items:center;gap:3px;padding:1px 8px;background:#dbeafe;color:#1e40af;border-radius:10px;font-size:11px;font-weight:500;animation:tagIn .2s ease}
+        .filter-tag span{cursor:pointer;font-weight:700;opacity:.6;font-size:13px;line-height:1;margin-left:2px}.filter-tag span:hover{opacity:1;color:#dc2626}
+        @keyframes tagIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
 
-        .top-bar {
-            height: var(--top-bar-h); min-height: var(--top-bar-h); max-height: var(--top-bar-h);
-            background: #fff; border-bottom: 1px solid #eef1f5;
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 0 20px; position: relative; z-index: 100; flex-shrink: 0;
-        }
-        #back-to-box {
-            display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 4px 8px;
-            color: #1a2b4a; font-size: 14px; font-weight: 600; cursor: pointer; border-radius: 4px; transition: all 0.2s ease; white-space: nowrap;
-        }
-        #back-to-box:hover { background: #f0f4f8; color: #1d4ed8; }
-        .tool-title { font-size: 18px; color: #1a2b4a; margin: 0; font-weight: 600; position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; }
-        .header-actions { display: flex; gap: 8px; align-items: center; }
-        .btn-action { padding: 5px 12px; border: 1px solid #d0d7de; color: #555; background: #fff; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
-        .btn-action:hover { border-color: var(--primary); color: var(--primary); background: #f8fbff; }
-
-        .workspace { flex: 1; display: flex; overflow: hidden; min-height: 0; }
-
-        .config-sidebar {
-            width: var(--sidebar-w); min-width: var(--sidebar-w); background: #fff;
-            border-right: 1px solid var(--gray-200); display: flex; flex-direction: column;
-            overflow: hidden; flex-shrink: 0; transition: width 0.3s, min-width 0.3s, opacity 0.3s;
-        }
-        .config-sidebar.collapsed { width: 0; min-width: 0; opacity: 0; overflow: hidden; border-right: none; }
-        .sidebar-header { padding: 12px 16px; font-weight: 600; font-size: 14px; background: #f8fafc; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-        .sidebar-body { flex: 1; overflow-y: auto; padding: 16px; }
-
-        .input-section { margin-bottom: 16px; }
-        .input-label { font-size: 12px; font-weight: 600; color: #555; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
-        .input-hint { font-size: 11px; color: #888; margin-bottom: 6px; line-height: 1.4; }
-        #raw-input { width: 100%; height: 140px; padding: 10px; font-family: monospace; font-size: 12px; border: 1px solid var(--gray-200); border-radius: 6px; resize: vertical; outline: none; background: #fcfdfd; }
-        #raw-input:focus { border-color: var(--primary); }
-        .file-btn { width: 100%; padding: 8px; border: 2px dashed #d0d7de; border-radius: 6px; background: #fff; color: #666; cursor: pointer; text-align: center; font-size: 12px; transition: all 0.2s; margin-top: 8px; }
-        .file-btn:hover { border-color: var(--primary); color: var(--primary); }
-
-        .config-group { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0; }
-        .config-group:last-child { border-bottom: none; }
-        .config-option { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555; margin-bottom: 8px; }
-        .config-option input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); flex-shrink: 0; }
-        .config-option select { flex: 1; padding: 4px 8px; border: 1px solid #d0d7de; border-radius: 4px; font-size: 12px; outline: none; min-width: 0; }
-        .config-option select:focus { border-color: var(--primary); }
-
-        .col-manager-title { font-size: 12px; font-weight: 600; color: #333; margin-bottom: 8px; }
-        .col-list { display: flex; flex-direction: column; gap: 4px; }
-        .col-chip { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--gray-200); border-radius: 6px; background: #fff; font-size: 12px; cursor: grab; user-select: none; transition: all 0.15s; }
-        .col-chip:active { cursor: grabbing; }
-        .col-chip.dragging { opacity: 0.4; border-style: dashed; }
-        .col-chip.drag-over { border-color: var(--primary); background: #eff6ff; transform: translateY(2px); }
-        .col-chip-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .col-chip-del { width: 20px; height: 20px; border-radius: 50%; border: none; background: #fee2e2; color: #991b1b; font-size: 14px; cursor: pointer; padding: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.15s; line-height: 1; }
-        .col-chip-del:hover { background: #dc2626; color: #fff; }
-        .col-chip.hidden-col { opacity: 0.4; text-decoration: line-through; border-style: dashed; cursor: default; }
-        .col-chip.hidden-col .col-chip-del { background: #f3f4f6; color: #999; }
-        .col-chip.index-col { border-color: #bfdbfe; background: #eff6ff; }
-
-        .preview-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; padding: 8px; position: relative; }
-        .preview-toolbar { display: flex; align-items: center; gap: 8px; padding: 0 4px 8px; flex-shrink: 0; flex-wrap: wrap; }
-        .base-selector { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555; }
-        .base-selector select { padding: 4px 8px; border: 1px solid #d0d7de; border-radius: 4px; font-size: 13px; outline: none; cursor: pointer; min-width: 100px; }
-        .toggle-sidebar-btn, .reset-col-btn { padding: 4px 10px; border: 1px solid #d0d7de; background: #fff; border-radius: 4px; font-size: 12px; cursor: pointer; color: #555; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }
-        .toggle-sidebar-btn:hover, .reset-col-btn:hover { border-color: var(--primary); color: var(--primary); }
-        .toggle-sidebar-btn { margin-left: auto; }
-
-        .table-wrapper { 
-            flex: 1; border-radius: 8px; box-shadow: 0 3px 15px rgba(0,0,0,0.08); 
-            background: white; overflow: auto; min-height: 0; position: relative; 
-        }
-
-        .compare-table { 
-            width: max-content; 
-            min-width: 100%;
-            border-collapse: separate; border-spacing: 0; 
-            table-layout: fixed; 
-        }
-        .compare-table th, .compare-table td { 
-            padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--gray-200); 
-            border-right: 1px solid var(--gray-200); vertical-align: top; 
-            overflow: hidden; text-overflow: ellipsis;
-        }
-        .compare-table th:last-child, .compare-table td:last-child { border-right: none; }
-        .compare-table thead th { 
-            position: sticky; top: 0; z-index: 20; background: var(--header-bg); 
-            background-clip: padding-box; box-shadow: 0 1px 3px rgba(0,0,0,0.08); 
-            font-size: 13px; font-weight: 600; white-space: nowrap; 
-        }
-        .col-index { 
-            width: 60px !important; min-width: 60px !important; max-width: 60px !important; 
-            text-align: center; color: #555; font-size: 12px; background: var(--index-bg); 
-            background-clip: padding-box; position: sticky; left: 0; z-index: 30; 
-            box-shadow: 1px 0 3px rgba(0,0,0,0.06); font-weight: 600; 
-        }
-        .compare-table thead th.col-index { z-index: 40 !important; background: var(--index-header-bg); background-clip: padding-box; }
-        .compare-table th.base-col { background: #eff6ff !important; color: var(--primary); border-bottom: 2px solid var(--primary); }
-        .compare-table td.base-col { background: #fafcff; }
+        .table-wrapper{flex:1;border-radius:8px;box-shadow:0 3px 15px rgba(0,0,0,.08);background:white;overflow:auto;min-height:0;position:relative}
+        .compare-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+        .compare-table th,.compare-table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--gray-200);border-right:1px solid var(--gray-200);vertical-align:top;overflow:hidden;text-overflow:ellipsis}
+        .compare-table th:last-child,.compare-table td:last-child{border-right:none}
+        .compare-table thead th{position:sticky;top:0;z-index:20;background:var(--header-bg);background-clip:padding-box;box-shadow:0 1px 3px rgba(0,0,0,.08);font-size:13px;font-weight:600;white-space:nowrap}
+        .col-index{width:60px!important;min-width:60px!important;max-width:60px!important;text-align:center;color:#555;font-size:12px;background:var(--index-bg);background-clip:padding-box;position:sticky;left:0;z-index:30;box-shadow:1px 0 3px rgba(0,0,0,.06);font-weight:600}
+        .compare-table thead th.col-index{z-index:40!important;background:var(--index-header-bg);background-clip:padding-box}
+        .compare-table th.base-col{background:#eff6ff!important;color:var(--primary);border-bottom:2px solid var(--primary)}
+        .compare-table td.base-col{background:#fafcff}
         
-        .text-col { 
-            min-width: 150px; 
-            width: 200px; 
-            position: relative; 
+        /* ✅ 核心修改：固定默认列宽，移除 max-content 自动撑开 */
+        .text-col{
+            min-width:220px;
+            width:280px;      /* 默认理想宽度 */
+            max-width:600px;  /* 允许拖拽拉宽的上限 */
+            position:relative;
         }
 
-        .col-resize-handle {
-            position: absolute; right: -4px; top: 0; bottom: 0; width: 8px;
-            cursor: col-resize; z-index: 50; user-select: none;
-            background: transparent; transition: background 0.15s;
-        }
-        .col-resize-handle:hover, .col-resize-handle.active { 
-            background: var(--primary); opacity: 0.6; 
-        }
-        
-        .resize-overlay { 
-            position: fixed; inset: 0; z-index: 99999; 
-            cursor: col-resize; display: none; 
-            background: transparent;
-        }
-
-        .cell-container { 
-            display: flex; 
-            flex-direction: column; 
-            min-height: 70px; 
-            position: relative;
-        }
-        .cell-tabs { display: flex; border-bottom: 1px solid #f0f0f0; background: #fafafa; flex-shrink: 0; }
-        .cell-tab { padding: 4px 12px; font-size: 11px; cursor: pointer; border: none; background: none; color: #888; transition: all 0.2s; white-space: nowrap; }
-        .cell-tab.active { color: var(--primary); border-bottom: 2px solid var(--primary); background: #fff; }
-        
-        .cell-body { 
-            padding: 10px 12px; 
-            font-size: 13px; 
-            line-height: 1.7; 
-            word-break: break-word; 
-            flex: 1; 
-            max-height: 280px;
-            overflow-y: auto;
-            overflow-x: hidden;
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        .cell-body::-webkit-scrollbar { width: 6px; }
-        .cell-body::-webkit-scrollbar-track { background: #f1f1f1; }
-        .cell-body::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
-        .cell-body::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
-        
-        .source-view { font-family: 'Menlo', 'Monaco', 'Courier New', monospace; font-size: 12px; white-space: pre-wrap; }
-        .diff-ins { background: #dcfce7; color: #166534; padding: 1px 2px; border-radius: 2px; }
-        .diff-del { background: #fee2e2; color: #991b1b; padding: 1px 2px; border-radius: 2px; text-decoration: line-through; }
-        
-        .img-grid { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
-        .img-wrapper {
-            width: 120px; height: 120px; border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden;
-            cursor: zoom-in; position: relative; background: #f9fafb; display: flex; align-items: center;
-            justify-content: center; transition: all 0.2s; flex-shrink: 0;
-        }
-        .img-wrapper:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .img-wrapper img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
-        .img-label { position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.6); color: white; font-size: 10px; padding: 1px 5px; border-radius: 3px; pointer-events: none; }
-        .img-error { font-size: 11px; color: #ef4444; text-align: center; padding: 8px; width: 100%; }
-
-        .render-view h1, .render-view h2, .render-view h3, .render-view h4 { margin: 12px 0 8px; line-height: 1.4; }
-        .render-view h1 { font-size: 1.4em; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-        .render-view h2 { font-size: 1.25em; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-        .render-view h3 { font-size: 1.1em; }
-        .render-view h4 { font-size: 1em; }
-        .render-view p { margin: 8px 0; line-height: 1.8; }
-        .render-view ul, .render-view ol { padding-left: 24px; margin: 8px 0; }
-        .render-view li { margin: 4px 0; line-height: 1.7; }
-        .render-view code { background: #f3f4f6; padding: 2px 5px; border-radius: 3px; font-size: 0.9em; font-family: 'Menlo', monospace; }
-        .render-view pre { background: #f8fafc; padding: 12px; border-radius: 6px; overflow-x: auto; margin: 12px 0; }
-        .render-view pre code { background: none; padding: 0; }
-        .render-view blockquote { border-left: 3px solid var(--primary); padding: 8px 12px; color: #555; margin: 12px 0; background: #f8fafc; border-radius: 0 4px 4px 0; }
-        .render-view strong { font-weight: 700; }
-        .render-view em { font-style: italic; }
-        .render-view del { text-decoration: line-through; color: #888; }
-        .render-view hr { border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }
-        .render-view table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }
-        .render-view table th, .render-view table td { border: 1px solid #d1d5db; padding: 8px 10px; text-align: left; }
-        .render-view table th { background: #f8fafc; font-weight: 600; }
-        .render-view table tr:nth-child(even) { background: #fafafa; }
-        .render-view a { color: var(--primary); text-decoration: none; }
-        .render-view a:hover { text-decoration: underline; }
-
-        .katex .bbox-yellow { background-color: #fef9c3; padding: 2px 4px; border-radius: 3px; }
-        .katex .bbox-red { background-color: #fee2e2; padding: 2px 4px; border-radius: 3px; }
-        .katex .bbox-blue { background-color: #dbeafe; padding: 2px 4px; border-radius: 3px; }
-        .katex .bbox-green { background-color: #dcfce7; padding: 2px 4px; border-radius: 3px; }
-        .katex .bbox-gray { background-color: #f3f4f6; padding: 2px 4px; border-radius: 3px; }
-        .katex .bbox-border { border: 1px solid #d1d5db; padding: 2px 4px; border-radius: 3px; }
-        
-        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; margin-left: 8px; }
-        .status-same { background: #dcfce7; color: #166534; }
-        .status-diff { background: #fee2e2; color: #991b1b; }
-        .status-base { background: #dbeafe; color: #1e40af; }
-        .empty-state { text-align: center; padding: 60px 20px; color: #999; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
-        .empty-state svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.3; }
-
-        .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: none; z-index: 2000; justify-content: center; align-items: center; flex-direction: column; backdrop-filter: blur(4px); }
-        .lb-close { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s; z-index: 2001; }
-        .lb-close:hover { background: rgba(255,255,255,0.15); }
-        .lb-image { max-width: 90vw; max-height: 80vh; object-fit: contain; cursor: grab; user-select: none; -webkit-user-drag: none; transform-origin: center center; }
-        .lb-image:active { cursor: grabbing; }
-        .lb-tools { margin-top: 20px; display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 24px; backdrop-filter: blur(8px); }
-        .lb-btn { background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
-        .lb-btn:hover { background: rgba(255,255,255,0.35); }
-        #zoomVal { color: white; min-width: 52px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; }
-        #zoomSlider { width: 120px; height: 4px; appearance: none; background: rgba(255,255,255,0.3); border-radius: 2px; cursor: pointer; outline: none; }
-        #zoomSlider::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; border-radius: 50%; background: white; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
-
-        @media (max-width: 768px) {
-            .tool-title { font-size: 15px; }
-            #back-to-box span { display: none; }
-            .workspace { flex-direction: column; }
-            .config-sidebar { width: 100% !important; min-width: 100% !important; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--gray-200); }
-            .config-sidebar.collapsed { max-height: 0; min-width: 100% !important; }
-            .preview-area { padding: 4px; }
-            .text-col { min-width: 100px; width: 150px; }
-            .img-wrapper { width: 80px; height: 80px; }
-            .lb-close { top: 10px; right: 10px; }
-            .lb-tools { padding: 6px 12px; gap: 8px; }
-            #zoomSlider { width: 80px; }
+        .col-resize-handle{position:absolute;right:-4px;top:0;bottom:0;width:8px;cursor:col-resize;z-index:50;user-select:none;background:transparent;transition:background .15s}
+        .col-resize-handle:hover,.col-resize-handle.active{background:var(--primary);opacity:.6}
+        .resize-overlay{position:fixed;inset:0;z-index:99999;cursor:col-resize;display:none;background:transparent}
+        .cell-container{display:flex;flex-direction:column;min-height:70px;position:relative}
+        .cell-tabs{display:flex;border-bottom:1px solid #f0f0f0;background:#fafafa;flex-shrink:0}
+        .cell-tab{padding:4px 12px;font-size:11px;cursor:pointer;border:none;background:none;color:#888;transition:all .2s;white-space:nowrap}
+        .cell-tab.active{color:var(--primary);border-bottom:2px solid var(--primary);background:#fff}
+        .cell-body{padding:10px 12px;font-size:13px;line-height:1.7;word-break:break-word;flex:1;max-height:280px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+        .cell-body::-webkit-scrollbar{width:6px}.cell-body::-webkit-scrollbar-track{background:#f1f1f1}.cell-body::-webkit-scrollbar-thumb{background:#c1c1c1;border-radius:3px}.cell-body::-webkit-scrollbar-thumb:hover{background:#a8a8a8}
+        .source-view{font-family:'Menlo','Monaco','Courier New',monospace;font-size:12px;white-space:pre-wrap}
+        .diff-ins{background:#dcfce7;color:#166534;padding:1px 2px;border-radius:2px}
+        .diff-del{background:#fee2e2;color:#991b1b;padding:1px 2px;border-radius:2px;text-decoration:line-through}
+        .img-grid{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}
+        .img-wrapper{width:120px;height:120px;border:1px solid #d1d5db;border-radius:6px;overflow:hidden;cursor:zoom-in;position:relative;background:#f9fafb;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+        .img-wrapper:hover{border-color:var(--primary);transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
+        .img-wrapper img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+        .img-label{position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.6);color:white;font-size:10px;padding:1px 5px;border-radius:3px;pointer-events:none}
+        .img-error{font-size:11px;color:#ef4444;text-align:center;padding:8px;width:100%}
+        .render-view h1,.render-view h2,.render-view h3,.render-view h4{margin:12px 0 8px;line-height:1.4}
+        .render-view h1{font-size:1.4em;border-bottom:1px solid #eee;padding-bottom:4px}
+        .render-view h2{font-size:1.25em;border-bottom:1px solid #eee;padding-bottom:4px}
+        .render-view h3{font-size:1.1em}.render-view h4{font-size:1em}
+        .render-view p{margin:8px 0;line-height:1.8}
+        .render-view ul,.render-view ol{padding-left:24px;margin:8px 0}
+        .render-view li{margin:4px 0;line-height:1.7}
+        .render-view code{background:#f3f4f6;padding:2px 5px;border-radius:3px;font-size:.9em;font-family:'Menlo',monospace}
+        .render-view pre{background:#f8fafc;padding:12px;border-radius:6px;overflow-x:auto;margin:12px 0}
+        .render-view pre code{background:none;padding:0}
+        .render-view blockquote{border-left:3px solid var(--primary);padding:8px 12px;color:#555;margin:12px 0;background:#f8fafc;border-radius:0 4px 4px 0}
+        .render-view strong{font-weight:700}.render-view em{font-style:italic}.render-view del{text-decoration:line-through;color:#888}
+        .render-view hr{border:none;border-top:1px solid #e5e7eb;margin:16px 0}
+        .render-view table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12px}
+        .render-view table th,.render-view table td{border:1px solid #d1d5db;padding:8px 10px;text-align:left}
+        .render-view table th{background:#f8fafc;font-weight:600}
+        .render-view table tr:nth-child(even){background:#fafafa}
+        .render-view a{color:var(--primary);text-decoration:none}.render-view a:hover{text-decoration:underline}
+        .katex .bbox-yellow{background-color:#fef9c3;padding:2px 4px;border-radius:3px}
+        .katex .bbox-red{background-color:#fee2e2;padding:2px 4px;border-radius:3px}
+        .katex .bbox-blue{background-color:#dbeafe;padding:2px 4px;border-radius:3px}
+        .katex .bbox-green{background-color:#dcfce7;padding:2px 4px;border-radius:3px}
+        .katex .bbox-gray{background-color:#f3f4f6;padding:2px 4px;border-radius:3px}
+        .katex .bbox-border{border:1px solid #d1d5db;padding:2px 4px;border-radius:3px}
+        .status-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;margin-left:8px}
+        .status-same{background:#dcfce7;color:#166534}.status-diff{background:#fee2e2;color:#991b1b}.status-base{background:#dbeafe;color:#1e40af}
+        .empty-state{text-align:center;padding:60px 20px;color:#999;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%}
+        .empty-state svg{width:64px;height:64px;margin-bottom:16px;opacity:.3}
+        .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;z-index:2000;justify-content:center;align-items:center;flex-direction:column;backdrop-filter:blur(4px)}
+        .lb-close{position:absolute;top:20px;right:30px;color:white;font-size:40px;cursor:pointer;width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background .2s;z-index:2001}
+        .lb-close:hover{background:rgba(255,255,255,.15)}
+        .lb-image{max-width:90vw;max-height:80vh;object-fit:contain;cursor:grab;user-select:none;-webkit-user-drag:none;transform-origin:center center}
+        .lb-image:active{cursor:grabbing}
+        .lb-tools{margin-top:20px;display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.1);padding:8px 16px;border-radius:24px;backdrop-filter:blur(8px)}
+        .lb-btn{background:rgba(255,255,255,.2);border:none;color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .2s}
+        .lb-btn:hover{background:rgba(255,255,255,.35)}
+        #zoomVal{color:white;min-width:52px;text-align:center;font-size:14px;font-variant-numeric:tabular-nums}
+        #zoomSlider{width:120px;height:4px;appearance:none;background:rgba(255,255,255,.3);border-radius:2px;cursor:pointer;outline:none}
+        #zoomSlider::-webkit-slider-thumb{appearance:none;width:16px;height:16px;border-radius:50%;background:white;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+        @media(max-width:768px){
+            .tool-title{font-size:15px}#back-to-box span{display:none}.workspace{flex-direction:column}.config-sidebar{width:100%!important;min-width:100%!important;max-height:40vh;border-right:none;border-bottom:1px solid var(--gray-200)}.config-sidebar.collapsed{max-height:0;min-width:100%!important}.preview-area{padding:4px}
+            /* ✅ 移动端适配更窄的默认宽度 */
+            .text-col{min-width:200px;width:220px}
+            .img-wrapper{width:80px;height:80px}.lb-close{top:10px;right:10px}.lb-tools{padding:6px 12px;gap:8px}#zoomSlider{width:80px}.filter-panel{min-width:auto}
         }
     </style>
 </head>
 <body>
-
     <div class="resize-overlay" id="resizeOverlay"></div>
-
     <div class="top-bar">
         <button id="back-to-box" onclick="location.href='index.html'" title="返回百宝箱主页">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             <span>百宝箱</span>
         </button>
         <h1 class="tool-title">📝 安安小工具系列 | 内容解析校对</h1>
-        <div class="header-actions">
-            <button class="btn-action" onclick="clearAll()">清空数据</button>
-        </div>
+        <div class="header-actions"><button class="btn-action" onclick="clearAll()">清空数据</button></div>
     </div>
-
     <div class="workspace">
         <div class="config-sidebar" id="configSidebar">
             <div class="sidebar-header"><span>⚙️ 数据 & 配置</span></div>
@@ -290,16 +187,24 @@
                 </div>
             </div>
         </div>
-
         <div class="preview-area">
             <div class="preview-toolbar">
                 <div class="base-selector"><label for="baseColSelect">基准列：</label><select id="baseColSelect"></select></div>
-                <button class="reset-col-btn" onclick="resetColumnWidths()" title="重置列宽">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
-                    重置列宽
-                </button>
+                
+                <!-- 编号筛选面板 -->
+                <div class="filter-panel">
+                    <label>🔍 编号筛选:</label>
+                    <input type="text" id="filterInput" class="filter-input" placeholder="输入编号，多个用逗号/空格分隔">
+                    <button class="filter-btn apply" id="btnApplyFilter">筛选</button>
+                    <button class="filter-btn clear" id="btnClearFilter">清除</button>
+                    <span class="filter-status" id="filterStatus"></span>
+                </div>
+
+                <button class="reset-col-btn" onclick="resetColumnWidths()" title="重置列宽"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>重置列宽</button>
                 <button class="toggle-sidebar-btn" id="toggleSidebarBtn" onclick="toggleSidebar()">◀ 收起面板</button>
             </div>
+            <div class="filter-tags" id="filterTags"></div>
+            
             <div id="contentArea" class="table-wrapper">
                 <div class="empty-state">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
@@ -308,8 +213,7 @@
             </div>
         </div>
     </div>
-
-    <div class="lightbox" id="lightbox" onclick="if(event.target===this) closeLB()">
+    <div class="lightbox" id="lightbox" onclick="if(event.target===this)closeLB()">
         <div class="lb-close" onclick="closeLB()" title="关闭 (Esc)">&times;</div>
         <img src="" class="lb-image" id="lbImg" draggable="false">
         <div class="lb-tools">
@@ -321,9 +225,7 @@
 
 <script>
 // ==================== 🔒 禁用图片原生拖拽 ====================
-document.addEventListener('dragstart', e => {
-    if (e.target.tagName === 'IMG') { e.preventDefault(); e.stopPropagation(); }
-}, true);
+document.addEventListener('dragstart', e => { if(e.target.tagName==='IMG'){e.preventDefault();e.stopPropagation();} }, true);
 
 // ==================== 💡 灯箱 ====================
 let lbScale=1,lbRot=0,lbX=0,lbY=0,lbDragging=false,lbStartX=0,lbStartY=0;
@@ -342,301 +244,362 @@ document.addEventListener('mouseup',stopLBDrag);
 document.addEventListener('keydown',e=>{if(lbEl.style.display!=='flex')return;if(e.key==='Escape')closeLB();if(e.key==='+'||e.key==='='){e.preventDefault();lbScale=Math.min(8,lbScale+0.1);zoomSlider.value=lbScale.toFixed(1);zoomVal.textContent=Math.round(lbScale*100)+'%';updateLBTransform();}if(e.key==='-'||e.key==='_'){e.preventDefault();lbScale=Math.max(0.1,lbScale-0.1);zoomSlider.value=lbScale.toFixed(1);zoomVal.textContent=Math.round(lbScale*100)+'%';updateLBTransform();}if(e.key==='r'||e.key==='R'){e.preventDefault();rotateLB(90);}});
 document.getElementById('contentArea').addEventListener('click',e=>{const w=e.target.closest('.img-wrapper[data-img-url]');if(w)openLB(w.getAttribute('data-img-url'));});
 
-// ==================== ✅ 列宽拖拽 ====================
-const resizeOverlay = document.getElementById('resizeOverlay');
-let resizingTh = null, resizeStartX = 0, resizeStartW = 0, resizeColIndex = -1;
+// ==================== ✅ 列宽拖拽（已优化：仅修改当前列，支持重置） ====================
+const resizeOverlay=document.getElementById('resizeOverlay');
+let resizingTh=null,resizeStartX=0,resizeStartW=0,resizeColIndex=-1;
 
-function initColResize(table) {
-    if (!table || table.dataset.resizeBound === 'true') return;
-    table.dataset.resizeBound = 'true';
-    table.addEventListener('mousedown', e => {
-        const handle = e.target.closest('.col-resize-handle');
-        if (!handle) return;
-        e.preventDefault(); e.stopPropagation();
-        resizingTh = handle.closest('th');
-        if (!resizingTh) return;
-        resizeStartX = e.clientX;
-        resizeStartW = resizingTh.getBoundingClientRect().width;
-        resizeColIndex = Array.from(resizingTh.parentNode.children).indexOf(resizingTh);
+function initColResize(table){
+    if(!table||table.dataset.resizeBound==='true')return;
+    table.dataset.resizeBound='true';
+    table.addEventListener('mousedown',e=>{
+        const handle=e.target.closest('.col-resize-handle');
+        if(!handle)return;
+        e.preventDefault();e.stopPropagation();
+        resizingTh=handle.closest('th');
+        if(!resizingTh)return;
+        resizeStartX=e.clientX;
+        resizeStartW=resizingTh.getBoundingClientRect().width;
+        resizeColIndex=Array.from(resizingTh.parentNode.children).indexOf(resizingTh);
         handle.classList.add('active');
-        resizeOverlay.style.display = 'block';
-        document.body.style.cursor = 'col-resize';
-        document.body.style.userSelect = 'none';
+        resizeOverlay.style.display='block';
+        document.body.style.cursor='col-resize';
+        document.body.style.userSelect='none';
     });
 }
 
-document.addEventListener('mousemove', e => {
-    if (!resizingTh) return;
+document.addEventListener('mousemove',e=>{
+    if(!resizingTh)return;
     e.preventDefault();
-    const diff = e.clientX - resizeStartX;
-    const newW = Math.max(80, resizeStartW + diff);
-    resizingTh.style.width = `${newW}px`;
-    resizingTh.style.minWidth = `${newW}px`;
-    resizingTh.style.maxWidth = `${newW}px`;
-    if (resizeColIndex >= 0) {
-        const tbody = resizingTh.closest('table')?.querySelector('tbody');
-        if (tbody) {
-            const rows = tbody.rows;
-            for (let i = 0; i < rows.length; i++) {
-                const td = rows[i].cells[resizeColIndex];
-                if (td) { td.style.width = `${newW}px`; td.style.minWidth = `${newW}px`; td.style.maxWidth = `${newW}px`; }
-            }
+    const diff=e.clientX-resizeStartX;
+    const newW=Math.max(180,resizeStartW+diff); // 最小180px防过窄
+    
+    // ✅ 关键：使用 cssText + !important 确保拖拽宽度覆盖CSS默认值
+    const widthStyle = `width:${newW}px!important;min-width:${newW}px!important;max-width:${newW}px!important;`;
+    resizingTh.style.cssText = widthStyle;
+    
+    // 同步更新对应 tbody 的所有单元格
+    const tbody=resizingTh.closest('table')?.querySelector('tbody');
+    if(tbody){
+        const rows=tbody.rows;
+        for(let i=0;i<rows.length;i++){
+            const td=rows[i].cells[resizeColIndex];
+            if(td) td.style.cssText = widthStyle;
         }
     }
 });
 
-document.addEventListener('mouseup', () => {
-    if (resizingTh) {
+document.addEventListener('mouseup',()=>{
+    if(resizingTh){
         resizingTh.querySelector('.col-resize-handle')?.classList.remove('active');
-        resizingTh = null; resizeColIndex = -1;
-        resizeOverlay.style.display = 'none';
-        document.body.style.cursor = ''; document.body.style.userSelect = '';
+        resizingTh=null;resizeColIndex=-1;
+        resizeOverlay.style.display='none';
+        document.body.style.cursor='';
+        document.body.style.userSelect='';
     }
 });
 
-function resetColumnWidths() {
-    document.querySelectorAll('.compare-table th.text-col, .compare-table td.text-col').forEach(el => {
-        el.style.width = ''; el.style.minWidth = ''; el.style.maxWidth = '';
-    });
+// ✅ 重置列宽：清除所有内联样式，回归CSS定义的280px默认值
+function resetColumnWidths(){
+    document.querySelectorAll('.compare-table th.text-col,.compare-table td.text-col')
+        .forEach(el=>el.style.cssText='');
 }
 
 // ==================== 全局状态 ====================
 let rawRows=[],headerLabels=[],colOrder=[],hiddenCols=new Set();
 let indexColOrig=-1,currentBaseCol=0,isHeaderRow=false,rafPending=false;
+let activeFilterIds=[],isFilterActive=false;
+
 function getVisibleDataCols(){return colOrder.filter(i=>i!==indexColOrig);}
 function scheduleRefresh(){if(rafPending)return;rafPending=true;requestAnimationFrame(()=>{rafPending=false;refreshAll();});}
 
-document.addEventListener('DOMContentLoaded', () => {
-    const rawInput = document.getElementById('raw-input');
-    const fileInput = document.getElementById('fileInput');
-    const chkHeader = document.getElementById('chkHeaderRow');
-    const selIndex = document.getElementById('selIndexCol');
-    const baseSel = document.getElementById('baseColSelect');
-    if(rawInput) rawInput.addEventListener('input', onRawInputChange);
-    if(fileInput) fileInput.addEventListener('change', function(){ handleFile(this.files[0]); });
-    if(chkHeader) chkHeader.addEventListener('change', onConfigChange);
-    if(selIndex) selIndex.addEventListener('change', onConfigChange);
-    if(baseSel) baseSel.addEventListener('change', onBaseColChange);
+function getEffectiveId(dataRowIndex) {
+    const dataRows = getDataRows();
+    if (dataRowIndex < 0 || dataRowIndex >= dataRows.length) return '';
+    const row = dataRows[dataRowIndex];
+    if (indexColOrig >= 0 && indexColOrig < row.length) return String(row[indexColOrig] ?? '').trim();
+    return String(dataRowIndex + 1);
+}
+
+function getFilteredDataRows() {
+    const allRows = getDataRows();
+    if (!isFilterActive || activeFilterIds.length === 0) return allRows;
+    const filterSet = new Set(activeFilterIds);
+    const result = [];
+    for (let i = 0; i < allRows.length; i++) {
+        if (filterSet.has(getEffectiveId(i))) {
+            const rowCopy = [...allRows[i]];
+            rowCopy._origIdx = i;
+            result.push(rowCopy);
+        }
+    }
+    return result;
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+    const rawInput=document.getElementById('raw-input');
+    const fileInput=document.getElementById('fileInput');
+    const chkHeader=document.getElementById('chkHeaderRow');
+    const selIndex=document.getElementById('selIndexCol');
+    const baseSel=document.getElementById('baseColSelect');
+    if(rawInput)rawInput.addEventListener('input',onRawInputChange);
+    if(fileInput)fileInput.addEventListener('change',function(){handleFile(this.files[0]);});
+    if(chkHeader)chkHeader.addEventListener('change',onConfigChange);
+    if(selIndex)selIndex.addEventListener('change',onConfigChange);
+    if(baseSel)baseSel.addEventListener('change',onBaseColChange);
+    initFilterPanel();
 });
+
+function initFilterPanel() {
+    const input = document.getElementById('filterInput');
+    const btnApply = document.getElementById('btnApplyFilter');
+    const btnClear = document.getElementById('btnClearFilter');
+    const status = document.getElementById('filterStatus');
+    const tagsContainer = document.getElementById('filterTags');
+
+    const updateStatus = () => {
+        const filteredCount = getFilteredDataRows().length;
+        const totalCount = getDataRows().length;
+        status.textContent = `显示 ${filteredCount} / ${totalCount} 条`;
+        status.style.color = filteredCount > 0 ? '#166534' : '#dc2626';
+    };
+
+    const renderTags = (ids) => {
+        tagsContainer.innerHTML = ids.map(id => 
+            `<span class="filter-tag">${escapeHtml(id)}<span data-rm="${escapeAttr(id)}">×</span></span>`
+        ).join('');
+        tagsContainer.querySelectorAll('[data-rm]').forEach(el => {
+            el.onclick = () => {
+                activeFilterIds = activeFilterIds.filter(fid => fid !== el.dataset.rm);
+                if (activeFilterIds.length === 0) { doClear(); return; }
+                renderTags(activeFilterIds);
+                renderTable();
+                updateStatus();
+            };
+        });
+    };
+
+    const doFilter = () => {
+        const raw = input.value.trim();
+        if (!raw) { doClear(); return; }
+        const ids = [...new Set(raw.split(/[,，\s\n]+/).map(s => s.trim()).filter(Boolean))];
+        if (ids.length === 0) { doClear(); return; }
+        activeFilterIds = ids;
+        isFilterActive = true;
+        renderTags(ids);
+        renderTable();
+        updateStatus();
+    };
+
+    const doClear = () => {
+        activeFilterIds = [];
+        isFilterActive = false;
+        input.value = '';
+        tagsContainer.innerHTML = '';
+        status.textContent = '';
+        renderTable();
+    };
+
+    btnApply.onclick = doFilter;
+    btnClear.onclick = doClear;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') doFilter(); });
+}
 
 function onRawInputChange(){
     const raw=document.getElementById('raw-input').value.trim();
     if(!raw){rawRows=[];renderEmptyState();renderColList();updateSelectors();return;}
-    rawRows=parseTSV(raw);
-    initColState();
+    rawRows=parseTSV(raw);initColState();
+    activeFilterIds=[];isFilterActive=false;
+    document.getElementById('filterInput').value='';
+    document.getElementById('filterTags').innerHTML='';
+    document.getElementById('filterStatus').textContent='';
     scheduleRefresh();
 }
 function onConfigChange(){isHeaderRow=document.getElementById('chkHeaderRow').checked;indexColOrig=parseInt(document.getElementById('selIndexCol').value,10);updateHeaderLabels();renderColList();scheduleRefresh();}
 function onBaseColChange(){currentBaseCol=parseInt(document.getElementById('baseColSelect').value,10);renderTable();}
 function refreshAll(){updateHeaderLabels();updateSelectors();renderColList();renderTable();}
-function initColState(){
-    const numCols=rawRows.length>0?Math.max(...rawRows.map(r=>r.length)):0;
-    const newOrder=[];for(let i=0;i<numCols;i++){if(!hiddenCols.has(i))newOrder.push(i);}
-    if(colOrder.length>0){const validOld=colOrder.filter(i=>i<numCols&&!hiddenCols.has(i));const addedNew=newOrder.filter(i=>!validOld.includes(i));colOrder=[...validOld,...addedNew];}else{colOrder=newOrder;}
-    hiddenCols=new Set([...hiddenCols].filter(i=>i<numCols));
-    isHeaderRow=document.getElementById('chkHeaderRow').checked;
-    indexColOrig=parseInt(document.getElementById('selIndexCol').value,10);
-    if(indexColOrig>=numCols){indexColOrig=-1;document.getElementById('selIndexCol').value='-1';}
-}
-function updateHeaderLabels(){
-    const numCols=rawRows.length>0?Math.max(...rawRows.map(r=>r.length)):0;
-    headerLabels=[];for(let i=0;i<numCols;i++){headerLabels.push(isHeaderRow&&rawRows.length>0?(rawRows[0][i]||`列 ${i+1}`):`文本 ${String.fromCharCode(65+i)}`);}
-}
-function updateSelectors(){
-    const idxSel=document.getElementById('selIndexCol');const prevIdx=idxSel.value;
-    idxSel.innerHTML='<option value="-1">自动编号</option>';
-    for(let i=0;i<headerLabels.length;i++){const opt=document.createElement('option');opt.value=i;opt.textContent=headerLabels[i];idxSel.appendChild(opt);}
-    idxSel.value=(parseInt(prevIdx,10)>=0&&parseInt(prevIdx,10)<headerLabels.length)?prevIdx:'-1';
-    indexColOrig=parseInt(idxSel.value,10);
-    const baseSel=document.getElementById('baseColSelect');const prevBase=baseSel.value;baseSel.innerHTML='';
-    const dataCols=getVisibleDataCols();
-    dataCols.forEach((origIdx,visIdx)=>{const opt=document.createElement('option');opt.value=visIdx;opt.textContent=headerLabels[origIdx];baseSel.appendChild(opt);});
-    const nb=parseInt(prevBase,10);baseSel.value=(nb>=0&&nb<dataCols.length)?nb:'0';currentBaseCol=parseInt(baseSel.value,10);
-}
-function toggleColVisibility(origIdx){
-    if(hiddenCols.has(origIdx)){hiddenCols.delete(origIdx);if(!colOrder.includes(origIdx))colOrder.push(origIdx);}
-    else{hiddenCols.add(origIdx);colOrder=colOrder.filter(i=>i!==origIdx);}
-    if(currentBaseCol>=getVisibleDataCols().length)currentBaseCol=Math.max(0,getVisibleDataCols().length-1);
-    scheduleRefresh();
-}
+function initColState(){const numCols=rawRows.length>0?Math.max(...rawRows.map(r=>r.length)):0;const newOrder=[];for(let i=0;i<numCols;i++){if(!hiddenCols.has(i))newOrder.push(i);}if(colOrder.length>0){const validOld=colOrder.filter(i=>i<numCols&&!hiddenCols.has(i));const addedNew=newOrder.filter(i=>!validOld.includes(i));colOrder=[...validOld,...addedNew];}else{colOrder=newOrder;}hiddenCols=new Set([...hiddenCols].filter(i=>i<numCols));isHeaderRow=document.getElementById('chkHeaderRow').checked;indexColOrig=parseInt(document.getElementById('selIndexCol').value,10);if(indexColOrig>=numCols){indexColOrig=-1;document.getElementById('selIndexCol').value='-1';}}
+function updateHeaderLabels(){const numCols=rawRows.length>0?Math.max(...rawRows.map(r=>r.length)):0;headerLabels=[];for(let i=0;i<numCols;i++){headerLabels.push(isHeaderRow&&rawRows.length>0?(rawRows[0][i]||`列 ${i+1}`):`文本 ${String.fromCharCode(65+i)}`);}}
+function updateSelectors(){const idxSel=document.getElementById('selIndexCol');const prevIdx=idxSel.value;idxSel.innerHTML='<option value="-1">自动编号</option>';for(let i=0;i<headerLabels.length;i++){const opt=document.createElement('option');opt.value=i;opt.textContent=headerLabels[i];idxSel.appendChild(opt);}idxSel.value=(parseInt(prevIdx,10)>=0&&parseInt(prevIdx,10)<headerLabels.length)?prevIdx:'-1';indexColOrig=parseInt(idxSel.value,10);const baseSel=document.getElementById('baseColSelect');const prevBase=baseSel.value;baseSel.innerHTML='';const dataCols=getVisibleDataCols();dataCols.forEach((origIdx,visIdx)=>{const opt=document.createElement('option');opt.value=visIdx;opt.textContent=headerLabels[origIdx];baseSel.appendChild(opt);});const nb=parseInt(prevBase,10);baseSel.value=(nb>=0&&nb<dataCols.length)?nb:'0';currentBaseCol=parseInt(baseSel.value,10);}
+function toggleColVisibility(origIdx){if(hiddenCols.has(origIdx)){hiddenCols.delete(origIdx);if(!colOrder.includes(origIdx))colOrder.push(origIdx);}else{hiddenCols.add(origIdx);colOrder=colOrder.filter(i=>i!==origIdx);}if(currentBaseCol>=getVisibleDataCols().length)currentBaseCol=Math.max(0,getVisibleDataCols().length-1);scheduleRefresh();}
 let dragSrcIdx=null;
 function onChipDragStart(e,oi){dragSrcIdx=oi;e.target.classList.add('dragging');e.dataTransfer.effectAllowed='move';}
 function onChipDragEnd(e){e.target.classList.remove('dragging');document.querySelectorAll('.col-chip').forEach(c=>c.classList.remove('drag-over'));dragSrcIdx=null;}
 function onChipDragOver(e,oi){e.preventDefault();e.dataTransfer.dropEffect='move';if(dragSrcIdx!==null&&dragSrcIdx!==oi)e.currentTarget.classList.add('drag-over');}
 function onChipDragLeave(e){e.currentTarget.classList.remove('drag-over');}
 function onChipDrop(e,toi){e.preventDefault();e.currentTarget.classList.remove('drag-over');if(dragSrcIdx===null||dragSrcIdx===toi)return;const sp=colOrder.indexOf(dragSrcIdx),tp=colOrder.indexOf(toi);if(sp===-1||tp===-1)return;colOrder.splice(sp,1);colOrder.splice(tp,0,dragSrcIdx);scheduleRefresh();}
-function renderColList(){
-    const container=document.getElementById('colList');
-    if(headerLabels.length===0){container.innerHTML='<div style="color:#aaa;font-size:12px;padding:8px 0;">输入数据后自动显示</div>';return;}
-    container.innerHTML='';
-    const allIndices=Array.from({length:headerLabels.length},(_,i)=>i);
-    const visibleSet=new Set(colOrder);const hiddenArr=allIndices.filter(i=>!visibleSet.has(i));
-    [...colOrder,...hiddenArr].forEach(origIdx=>{
-        const isHidden=hiddenCols.has(origIdx);const isIndexCol=origIdx===indexColOrig;
-        const label=isIndexCol?`🔢 ${headerLabels[origIdx]}`:headerLabels[origIdx];
-        const chip=document.createElement('div');
-        chip.className=`col-chip${isHidden?' hidden-col':''}${isIndexCol?' index-col':''}`;chip.draggable=!isHidden;
-        chip.innerHTML=`<span class="col-chip-name" title="${escapeAttr(headerLabels[origIdx])}">${escapeHtml(label)}</span><button class="col-chip-del" title="${isHidden?'恢复':'隐藏'}">${isHidden?'+':'×'}</button>`;
-        chip.querySelector('.col-chip-del').onclick=(e)=>{e.stopPropagation();toggleColVisibility(origIdx);};
-        if(!isHidden){chip.addEventListener('dragstart',e=>onChipDragStart(e,origIdx));chip.addEventListener('dragend',onChipDragEnd);chip.addEventListener('dragover',e=>onChipDragOver(e,origIdx));chip.addEventListener('dragleave',onChipDragLeave);chip.addEventListener('drop',e=>onChipDrop(e,origIdx));}
-        container.appendChild(chip);
-    });
-}
+function renderColList(){const container=document.getElementById('colList');if(headerLabels.length===0){container.innerHTML='<div style="color:#aaa;font-size:12px;padding:8px 0;">输入数据后自动显示</div>';return;}container.innerHTML='';const allIndices=Array.from({length:headerLabels.length},(_,i)=>i);const visibleSet=new Set(colOrder);const hiddenArr=allIndices.filter(i=>!visibleSet.has(i));[...colOrder,...hiddenArr].forEach(origIdx=>{const isHidden=hiddenCols.has(origIdx);const isIndexCol=origIdx===indexColOrig;const label=isIndexCol?`🔢 ${headerLabels[origIdx]}`:headerLabels[origIdx];const chip=document.createElement('div');chip.className=`col-chip${isHidden?' hidden-col':''}${isIndexCol?' index-col':''}`;chip.draggable=!isHidden;chip.innerHTML=`<span class="col-chip-name" title="${escapeAttr(headerLabels[origIdx])}">${escapeHtml(label)}</span><button class="col-chip-del" title="${isHidden?'恢复':'隐藏'}">${isHidden?'+':'×'}</button>`;chip.querySelector('.col-chip-del').onclick=(e)=>{e.stopPropagation();toggleColVisibility(origIdx);};if(!isHidden){chip.addEventListener('dragstart',e=>onChipDragStart(e,origIdx));chip.addEventListener('dragend',onChipDragEnd);chip.addEventListener('dragover',e=>onChipDragOver(e,origIdx));chip.addEventListener('dragleave',onChipDragLeave);chip.addEventListener('drop',e=>onChipDrop(e,origIdx));}container.appendChild(chip);});}
 function toggleSidebar(){const sb=document.getElementById('configSidebar'),btn=document.getElementById('toggleSidebarBtn');sb.classList.toggle('collapsed');btn.textContent=sb.classList.contains('collapsed')?'▶ 展开面板':'◀ 收起面板';}
 function getDataRows(){return isHeaderRow?rawRows.slice(1):rawRows;}
 function renderEmptyState(){document.getElementById('contentArea').innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p>在左侧输入或导入数据即可实时预览</p></div>`;}
 
-// ==================== 🔧 FINAL FINAL FIX: 强制列表内公式换行 ====================
-
-/**
- * 1. 修复缩进：全角空格 -> &nbsp;
- * 2. 清理业务占位符
- * 3. 【关键】强制在列表项后的 LaTeX 公式前插入换行符 (\n)
- */
-function preprocessTextForRendering(text) {
+// =====================================================================
+// 🚀 核心渲染引擎 v3.0
+// =====================================================================
+function unicodeNormalize(text) {
     if (!text) return text;
-    
-    // Step 1: 全角空格 -> &nbsp;
-    let processed = text.replace(/\u3000/g, '&nbsp;');
-    
-    // Step 2: 清理业务占位符
-    processed = processed.replace(/\[\[[\w_]+\]\]/g, '').replace(/\{\{[\w_]+\(.*?\)\}\}/g, '');
-    
-    // Step 3: 【核心修复】在列表项后的 LaTeX 公式前插入换行
-    // 匹配：以 "- ", "* ", "1. ", "2. " 等开头，后跟 $...$ 或 \begin{...} 的模式
-    // 在公式前插入 \n，使其成为新段落
-    processed = processed.replace(
-        /(^|\n)([-*]|\d+\.)\s+((?:\$[^\$]*\$|\\\[[^\]]*\\\]|\\begin\{[^\}]+\}|\\\[.*?\\\]))/gm,
-        '$1$2\n$3'
-    );
-    
-    // Step 4: 再次处理，防止多级嵌套（如 - $...$ $...$）
-    processed = processed.replace(
-        /(^|\n)([-*]|\d+\.)\s+(\$[^\$]*\$)/gm,
-        '$1$2\n$3'
-    );
-    
-    return processed;
+    let s = text;
+    s = s.replace(/[\u200B\uFEFF\u00AD\u200C\u200D]/g, '');
+    s = s.replace(/[\uFF01-\uFF5E]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+    s = s.replace(/\u3000/g, ' ');
+    s = s.replace(/，/g, ',').replace(/。/g, '.').replace(/；/g, ';').replace(/：/g, ':');
+    s = s.replace(/"/g, '"').replace(/"/g, '"').replace(/'/g, "'").replace(/'/g, "'");
+    s = s.replace(/（/g, '(').replace(/）/g, ')').replace(/【/g, '[').replace(/】/g, ']');
+    s = s.replace(/Ⅰ/g, 'I').replace(/Ⅱ/g, 'II').replace(/Ⅲ/g, 'III').replace(/Ⅳ/g, 'IV');
+    s = s.replace(/©/g, '(c)').replace(/®/g, '(r)').replace(/™/g, '(tm)');
+    return s;
 }
-
-/**
- * 检测并包裹裸 LaTeX（含 \begin{...} 和 \command）
- */
-function wrapBareLatex(text) {
+function normalizeMathSymbols(text) {
     if (!text) return text;
-    
-    // 如果已经包含定界符，跳过
-    if (/\$|\\\(|\\\[/.test(text)) return text;
-    
-    // 检测 \begin{...} 或 \end{...} 或 \command
-    if (/\\begin\{[^}]+\}|\\end\{[^}]+\}|\\[a-zA-Z]+/.test(text)) {
-        return '$' + text + '$';
+    const map = {
+        'times': '\\times', 'div': '\\div', 'cdot': '\\cdot', 'pm': '\\pm', 'mp': '\\mp',
+        'ast': '\\ast', 'star': '\\star', 'circ': '\\circ', 'bullet': '\\bullet',
+        'leq': '\\leq', 'le': '\\le', 'geq': '\\geq', 'ge': '\\ge',
+        'neq': '\\neq', 'ne': '\\ne', 'approx': '\\approx', 'equiv': '\\equiv',
+        'sim': '\\sim', 'propto': '\\propto', 'perp': '\\perp', 'parallel': '\\parallel',
+        'to': '\\to', 'rightarrow': '\\rightarrow', 'leftarrow': '\\leftarrow',
+        'Rightarrow': '\\Rightarrow', 'Leftarrow': '\\Leftarrow',
+        'mapsto': '\\mapsto', 'leftrightarrow': '\\leftrightarrow',
+        'cup': '\\cup', 'cap': '\\cap', 'subset': '\\subset', 'supset': '\\supset',
+        'in': '\\in', 'notin': '\\notin', 'emptyset': '\\emptyset',
+        'forall': '\\forall', 'exists': '\\exists',
+        'alpha': '\\alpha', 'beta': '\\beta', 'gamma': '\\gamma', 'delta': '\\delta',
+        'epsilon': '\\epsilon', 'zeta': '\\zeta', 'eta': '\\eta', 'theta': '\\theta',
+        'iota': '\\iota', 'kappa': '\\kappa', 'lambda': '\\lambda', 'mu': '\\mu',
+        'nu': '\\nu', 'xi': '\\xi', 'pi': '\\pi', 'rho': '\\rho', 'sigma': '\\sigma',
+        'tau': '\\tau', 'upsilon': '\\upsilon', 'phi': '\\phi', 'chi': '\\chi',
+        'psi': '\\psi', 'omega': '\\omega',
+        'Gamma': '\\Gamma', 'Delta': '\\Delta', 'Theta': '\\Theta', 'Lambda': '\\Lambda',
+        'Xi': '\\Xi', 'Pi': '\\Pi', 'Sigma': '\\Sigma', 'Upsilon': '\\Upsilon',
+        'Phi': '\\Phi', 'Psi': '\\Psi', 'Omega': '\\Omega',
+        'infty': '\\infty', 'partial': '\\partial', 'nabla': '\\nabla',
+        'sin': '\\sin', 'cos': '\\cos', 'tan': '\\tan',
+        'log': '\\log', 'ln': '\\ln', 'lim': '\\lim',
+        'max': '\\max', 'min': '\\min', 'det': '\\det', 'tr': '\\tr', 'rank': '\\rank',
+        'arg': '\\arg', 'Re': '\\Re', 'Im': '\\Im',
+        'quad': '\\quad', 'qquad': '\\qquad',
+        'therefore': '\\therefore', 'because': '\\because',
+        'angle': '\\angle', 'triangle': '\\triangle',
+        'wedge': '\\wedge', 'vee': '\\vee', 'neg': '\\neg',
+        'ldots': '\\ldots', 'cdots': '\\cdots'
+    };
+    const cmds = Object.keys(map).sort((a, b) => b.length - a.length);
+    for (const cmd of cmds) {
+        const re = new RegExp(`(?<![\\\\a-zA-Z])${cmd}(?![a-zA-Z])`, 'g');
+        text = text.replace(re, map[cmd]);
     }
-    
     return text;
 }
-
-/**
- * 核心渲染函数
- */
+function matchBrace(s, pos) {
+    if (pos >= s.length || s[pos] !== '{') return -1;
+    let depth = 0;
+    for (let j = pos; j < s.length; j++) {
+        if (s[j] === '{') depth++;
+        else if (s[j] === '}') { depth--; if (depth === 0) return j + 1; }
+    }
+    return -1;
+}
+function wrapNakedLatex(text) {
+    if (!text) return text;
+    text = text.replace(/([^a-zA-Z\\])(sin|cos|tan|log|ln|lim|max|min)(frac\{)/g, '$1$2 \\$3');
+    text = text.replace(/^(sin|cos|tan|log|ln|lim|max|min)(frac\{)/gm, '$1 \\$2');
+    const braceCmds = 'dfrac|tfrac|cfrac|frac|sqrt|text|mathrm|mathbf|boldsymbol|overline|underline|hat|bar|vec|tilde|binom|int|sum|prod|lim|mathbb|mathcal|begin|end';
+    text = text.replace(new RegExp('([^\\\\a-zA-Z])(' + braceCmds + ')(\\{)', 'g'), '$1\\$2$3');
+    text = text.replace(new RegExp('^(' + braceCmds + ')(\\{)', 'gm'), '\\$1$2');
+    text = text.replace(/\\{2,}([a-zA-Z])/g, '\\$1');
+    const prot = []; let pi = 0;
+    text = text.replace(/\$\$[\s\S]*?\$\$/g, m => { prot.push(m); return '%%P' + (pi++) + '%%'; });
+    text = text.replace(/\$[^$\n]+?\$/g, m => { prot.push(m); return '%%P' + (pi++) + '%%'; });
+    text = text.replace(/\\\([\s\S]*?\\\)/g, m => { prot.push(m); return '%%P' + (pi++) + '%%'; });
+    text = text.replace(/\\\[[\s\S]*?\\\]/g, m => { prot.push(m); return '%%P' + (pi++) + '%%'; });
+    text = text.replace(/(\\begin\{[^}]+\}[\s\S]*?\\end\{[^}]+\})/g, m => { prot.push('$$' + m + '$$'); return '%%P' + (pi++) + '%%'; });
+    text = text.replace(/^([^\n]*\\(?:frac|sum|prod|int|left|sin|cos|quad|tau|alpha|beta|gamma|delta|theta|omega|Omega|times|ge|le|infty|div|cdot|sqrt|binom|mathrm|mathbf)[^\n]*[}\d)\]a-zA-Z])\s*$/gm, m => {
+        if (m.includes('$') || m.includes('%%P')) return m;
+        if ((m.match(/[\u4e00-\u9fff]/g) || []).length > m.length * 0.3) return m;
+        prot.push('$$' + m.trim() + '$$'); return '%%P' + (pi++) + '%%';
+    });
+    const fracRe = /\\(?:frac|sqrt|binom)\{/g;
+    let fracMatch, result4 = '', lastIdx4 = 0;
+    while ((fracMatch = fracRe.exec(text)) !== null) {
+        const cmdStart = fracMatch.index;
+        let end = matchBrace(text, cmdStart + fracMatch[0].length - 1);
+        if (end === -1) continue;
+        if (fracMatch[0].includes('frac') || fracMatch[0].includes('binom')) {
+            let p = end; while (p < text.length && text[p] === ' ') p++;
+            if (p < text.length && text[p] === '{') { const e2 = matchBrace(text, p); if (e2 !== -1) end = e2; }
+        }
+        const tail = text.substring(end);
+        const contMatch = tail.match(/^(?:[^\n，。；]*?(?:\\[a-zA-Z]+(?:\{[^}]*\})*|[0-9]+))/);
+        if (contMatch) end += contMatch[0].length;
+        const expr = text.substring(cmdStart, end);
+        if (expr.includes('$') || expr.includes('%%P')) { fracRe.lastIndex = end; continue; }
+        result4 += text.substring(lastIdx4, cmdStart) + ' $' + expr + '$ ';
+        lastIdx4 = end; fracRe.lastIndex = end;
+    }
+    text = result4 + text.substring(lastIdx4);
+    const cmdRe5 = /\\[a-zA-Z]+/g;
+    let cmdMatch5, result5 = '', lastIdx5 = 0;
+    while ((cmdMatch5 = cmdRe5.exec(text)) !== null) {
+        const cs = cmdMatch5.index;
+        if (text.substring(Math.max(0, cs - 2), cs).includes('$')) continue;
+        let pos5 = cs + cmdMatch5[0].length;
+        while (pos5 < text.length && text[pos5] === '{') { const be = matchBrace(text, pos5); if (be === -1) break; pos5 = be; }
+        while (pos5 < text.length && (text[pos5] === '_' || text[pos5] === '^')) {
+            pos5++;
+            if (pos5 < text.length && text[pos5] === '{') { const be2 = matchBrace(text, pos5); if (be2 !== -1) pos5 = be2; }
+            else if (pos5 < text.length && /[0-9a-zA-Z]/.test(text[pos5])) pos5++;
+        }
+        const expr5 = text.substring(cs, pos5);
+        if (expr5.trim().length < 4 || expr5.includes('$') || expr5.includes('%%P') || cs < lastIdx5) continue;
+        result5 += text.substring(lastIdx5, cs) + ' $' + expr5.trim() + '$ ';
+        lastIdx5 = pos5; cmdRe5.lastIndex = pos5;
+    }
+    text = result5 + text.substring(lastIdx5);
+    text = text.replace(/(?<![\\$a-zA-Z])([a-zA-Z][a-zA-Z0-9()]*(?:[_^](?:\{[^}]*\}|[0-9a-zA-Z]))(?:[_^](?:\{[^}]*\}|[0-9a-zA-Z]))*)/g, (m, expr, offset) => {
+        if (!expr.includes('_') && !expr.includes('^')) return m;
+        if (m.includes('$') || m.includes('%%P')) return m;
+        if ((text.substring(Math.max(0, offset - 100), offset).match(/\$/g) || []).length % 2 === 1) return m;
+        if (expr.length < 4 || (/^[a-z]+_[a-z]+$/i.test(expr) && !expr.includes('{'))) return m;
+        return ' $' + expr + '$ ';
+    });
+    text = text.replace(/%%P(\d+)%%/g, (_, i) => prot[parseInt(i)]);
+    text = text.replace(/\$\s+\$/g, '');
+    return text;
+}
+function escapeHtmlButKeepLatex(text) {
+    const latexBlocks = []; let idx = 0;
+    text = text.replace(/\$\$([\s\S]*?)\$\$/g, m => { latexBlocks.push(m); return '%%LATEX' + (idx++) + '%%'; });
+    text = text.replace(/\$([^$\n]+?)\$/g, m => { latexBlocks.push(m); return '%%LATEX' + (idx++) + '%%'; });
+    text = text.replace(/\\\[([\s\S]*?)\\\]/g, m => { latexBlocks.push(m); return '%%LATEX' + (idx++) + '%%'; });
+    text = text.replace(/\\\(([\s\S]*?)\\\)/g, m => { latexBlocks.push(m); return '%%LATEX' + (idx++) + '%%'; });
+    text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    text = text.replace(/%%LATEX(\d+)%%/g, (_, i) => latexBlocks[parseInt(i)]);
+    return text;
+}
 function renderMixedContent(text) {
     if (!text || !text.trim()) return '<span style="color:#ccc;font-style:italic;">(空)</span>';
-    
-    // Step 0: 预处理（修复缩进 + 清理占位符 + 强制列表换行）
-    let cleaned = preprocessTextForRendering(text);
-    
-    // Step 1: 保护已定界的 LaTeX
-    const latexStore = [];
-    const protectedText = cleaned.replace(
-        /(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[^$\n]+?\$|\\\([\s\S]*?\\\))/g,
-        (match) => {
-            latexStore.push(match);
-            return `%%LATEX_BLOCK_${latexStore.length - 1}%%`;
-        }
-    );
-    
-    // Step 2: 包裹裸 LaTeX
-    const wrappedText = wrapBareLatex(protectedText);
-    
-    // Step 3: 使用 marked 解析
-    let html = '';
+    let cleaned = unicodeNormalize(text);
+    cleaned = cleaned.replace(/\[\[[\w_]+\]\]/g, '').replace(/\{\{[\w_]+\(.*?\)\}\}/g, '');
+    cleaned = normalizeMathSymbols(cleaned);
+    cleaned = wrapNakedLatex(cleaned);
     try {
-        marked.setOptions({
-            pedantic: false,
-            gfm: true,
-            breaks: true,
-            headerIds: false,
-            sanitize: false
-        });
-        html = marked.parse(wrappedText);
+        marked.setOptions({ pedantic: false, gfm: true, breaks: true, headerIds: false, sanitize: false });
+        return marked.parse(cleaned);
     } catch (e) {
-        html = `<p>${escapeHtml(wrappedText)}</p>`;
+        return '<p>' + escapeHtmlButKeepLatex(cleaned) + '</p>';
     }
-    
-    // Step 4: 还原 LaTeX
-    html = html.replace(/%%LATEX_BLOCK_(\d+)%%/g, (_, idx) => {
-        return latexStore[parseInt(idx)] || '';
-    });
-    
-    return html;
 }
-
-/**
- * 内容类型检测
- */
-function detectContentType(text) {
-    if (!text) return 'empty';
-    const t = text.trim();
-    if (!t) return 'empty';
-    if (isPureImageContent(t)) return 'image';
-    return 'rich';
+function doKaTeX(el) {
+    if (typeof renderMathInElement !== 'function') return;
+    try {
+        renderMathInElement(el, {
+            delimiters: [
+                { left: '$$', right: '$$', display: true }, { left: '\\[', right: '\\]', display: true },
+                { left: '$', right: '$', display: false }, { left: '\\(', right: '\\)', display: false }
+            ],
+            throwOnError: false, trust: false, strict: false, macros: KATEX_MACROS
+        });
+    } catch (e) { console.warn('KaTeX error:', e); }
 }
-
-const URL_RE = /^https?:\/\/[\w\-._~:/?#\[\]@!$&'()*+,;=%]+$/i;
-const MD_IMG_RE = /!\[[^\]]*\]\(([^)]+)\)/g;
-
-function extractImageUrls(text) {
-    if (!text) return [];
-    const urls = []; const seen = new Set();
-    const mdMatches = text.matchAll(MD_IMG_RE);
-    for (const m of mdMatches) { const u = m[1].trim(); if (u && !seen.has(u)) { seen.add(u); urls.push(u); } }
-    const segments = text.split(/[\n\r,;]+/).map(s => s.trim()).filter(Boolean);
-    for (const seg of segments) {
-        const clean = seg.replace(/!\[[^\]]*\]\([^)]*\)/g, '').trim();
-        if (clean && URL_RE.test(clean) && !seen.has(clean)) { seen.add(clean); urls.push(clean); }
-    }
-    return urls;
-}
-
-function isPureImageContent(text) {
-    if (!text) return false;
-    const t = text.trim();
-    const urls = extractImageUrls(t);
-    if (urls.length === 0) return false;
-    const remaining = t
-        .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
-        .split(/[\n\r,;]+/)
-        .map(s => s.trim())
-        .filter(s => s && !URL_RE.test(s))
-        .join('');
-    return remaining.length < 5;
-}
-
-function renderImageGrid(text) {
-    const urls = extractImageUrls(text);
-    if (urls.length === 0) return '<span style="color:#ccc;font-style:italic;">(无有效图片)</span>';
-    return `<div class="img-grid">${urls.map((u, i) => `<div class="img-wrapper" data-img-url="${escapeAttr(u)}"><img src="${escapeAttr(u)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=img-error>⚠️ 加载失败</div>'"><span class="img-label">${i + 1}</span></div>`).join('')}</div>`;
-}
-
-function renderContent(text, type) {
-    if (!text || !text.trim()) return '<span style="color:#ccc;font-style:italic;">(空)</span>';
-    if (type === 'image' || isPureImageContent(text)) {
-        return renderImageGrid(text);
-    }
-    return renderMixedContent(text);
-}
-
-// ==================== KaTeX 配置 ====================
 const KATEX_MACROS = {
     "\\bra": "\\langle #1 |", "\\ket": "| #1 \\rangle", "\\braket": "\\langle #1 | #2 \\rangle",
     "\\Bra": "\\left\\langle #1 \\right|", "\\Ket": "\\left| #1 \\right\\rangle",
@@ -648,33 +611,32 @@ const KATEX_MACROS = {
     "\\dif": "\\mathrm{d}", "\\dd": "\\mathrm{d}", "\\ii": "\\mathrm{i}", "\\ee": "\\mathrm{e}", "\\jj": "\\mathrm{j}",
     "\\T": "\\mathrm{T}", "\\tr": "\\operatorname{tr}", "\\diag": "\\operatorname{diag}", "\\rank": "\\operatorname{rank}",
     "\\argmin": "\\operatorname{arg\\,min}", "\\argmax": "\\operatorname{arg\\,max}",
-    "\\bbox": "\\htmlClass{bbox-#1}{#2}"
+    "\\bbox": "\\htmlClass{bbox-#1}{#2}",
+    "\\href": "\\text{[链接已禁用]}", "\\includegraphics": "\\text{[图片引用已禁用]}",
+    "\\input": "\\text{[文件包含已禁用]}", "\\include": "\\text{[文件包含已禁用]}",
+    "\\write": "\\text{[写操作已禁用]}", "\\read": "\\text{[读操作已禁用]}",
+    "\\openout": "\\text{[文件输出已禁用]}", "\\cssId": "\\text{[DOM操作已禁用]}", "\\class": "\\text{[DOM操作已禁用]}"
 };
+function detectContentType(text) { if (!text) return 'empty'; const t = text.trim(); if (!t) return 'empty'; if (isPureImageContent(t)) return 'image'; return 'rich'; }
+const URL_RE = /^https?:\/\/[\w\-._~:/?#\[\]@!$&'()*+,;=%]+$/i;
+const MD_IMG_RE = /!\[[^\]]*\]\(([^)]+)\)/g;
+function extractImageUrls(text) { if (!text) return []; const urls = []; const seen = new Set(); for (const m of text.matchAll(MD_IMG_RE)) { const u = m[1].trim(); if (u && !seen.has(u)) { seen.add(u); urls.push(u); } } for (const seg of text.split(/[\n\r,;]+/).map(s => s.trim()).filter(Boolean)) { const clean = seg.replace(/!\[[^\]]*\]\([^)]*\)/g, '').trim(); if (clean && URL_RE.test(clean) && !seen.has(clean)) { seen.add(clean); urls.push(clean); } } return urls; }
+function isPureImageContent(text) { if (!text) return false; const urls = extractImageUrls(text); if (!urls.length) return false; const remaining = text.replace(/!\[[^\]]*\]\([^)]*\)/g, '').split(/[\n\r,;]+/).map(s => s.trim()).filter(s => s && !URL_RE.test(s)).join(''); return remaining.length < 5; }
+function renderImageGrid(text) { const urls = extractImageUrls(text); if (!urls.length) return '<span style="color:#ccc;font-style:italic;">(无有效图片)</span>'; return `<div class="img-grid">${urls.map((u, i) => `<div class="img-wrapper" data-img-url="${escapeAttr(u)}"><img src="${escapeAttr(u)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=img-error>⚠️ 加载失败</div>'"><span class="img-label">${i + 1}</span></div>`).join('')}</div>`; }
+function renderContent(text, type) { if (!text || !text.trim()) return '<span style="color:#ccc;font-style:italic;">(空)</span>'; if (type === 'image' || isPureImageContent(text)) return renderImageGrid(text); return renderMixedContent(text); }
 
-function doKaTeX(el) {
-    if (typeof renderMathInElement !== 'function') return;
-    try {
-        renderMathInElement(el, {
-            delimiters: [
-                { left: '$$', right: '$$', display: true },
-                { left: '$', right: '$', display: false },
-                { left: '\\(', right: '\\)', display: false },
-                { left: '\\[', right: '\\]', display: true }
-            ],
-            throwOnError: false,
-            trust: true,
-            strict: false,
-            macros: KATEX_MACROS
-        });
-    } catch (e) { console.warn('KaTeX render error:', e); }
-}
-
-// ==================== 核心表格渲染 ====================
+// ==================== 分片渲染表格（已适配筛选 + 固定列宽） ====================
 function renderTable() {
-    const dataRows = getDataRows(); const dataCols = getVisibleDataCols();
-    if (!dataRows.length || dataCols.length === 0) { renderEmptyState(); return; }
+    const dataRows = getFilteredDataRows();
+    const dataCols = getVisibleDataCols();
+    if (!dataRows.length || !dataCols.length) {
+        if (isFilterActive && activeFilterIds.length > 0 && getDataRows().length > 0) {
+            document.getElementById('contentArea').innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><p>未找到匹配的编号<br><small style="color:#aaa">请检查筛选条件或清除筛选</small></p></div>`;
+        } else { renderEmptyState(); }
+        return;
+    }
     const baseOrigIdx = dataCols[currentBaseCol];
-
+    const contentArea = document.getElementById('contentArea');
     let tableHtml = `<table class="compare-table"><thead><tr>`;
     const indexLabel = indexColOrig >= 0 ? headerLabels[indexColOrig] : '#';
     tableHtml += `<th class="col-index">${escapeHtml(indexLabel)}</th>`;
@@ -683,80 +645,61 @@ function renderTable() {
         const baseTag = visIdx === currentBaseCol ? ' 🎯' : '';
         tableHtml += `<th class="text-col${baseClass}">${escapeHtml(headerLabels[origIdx])}${baseTag}<div class="col-resize-handle"></div></th>`;
     });
-    tableHtml += `</tr></thead><tbody>`;
-
-    dataRows.forEach((row, r) => {
-        let indexContent = indexColOrig >= 0 ? escapeHtml(row[indexColOrig] || '') : `<span style="color:#888;font-size:12px">${r + 1}</span>`;
-        const baseText = row[baseOrigIdx] || '';
-        const hasComplex = dataCols.some(oi => {
-            const t = detectContentType(row[oi] || '');
-            return t === 'rich' || t === 'image';
-        });
-        tableHtml += `<tr><td class="col-index">${indexContent}</td>`;
-        dataCols.forEach((origIdx, visIdx) => {
-            const originalText = row[origIdx] || '';
-            const type = detectContentType(originalText);
-            const isBase = visIdx === currentBaseCol;
-            const isSame = originalText === baseText;
-
-            const safeToDiff = type !== 'rich' && type !== 'image';
-            const diffs = (!isBase && !isSame && safeToDiff) ? computeDiff(baseText, originalText) : null;
-
-            let statusBadge = isBase ? '<span class="status-badge status-base">基准</span>'
-                : isSame ? '<span class="status-badge status-same">一致</span>'
-                    : '<span class="status-badge status-diff">差异</span>';
-
-            let sourceHtml = isBase ? escapeHtml(originalText)
-                : diffs ? renderDiffSource(originalText, diffs, false)
-                    : escapeHtml(originalText);
-
-            const renderedHtml = renderContent(originalText, type);
-
-            const cellId = `cell-${r}-${visIdx}`;
-            const defaultTab = hasComplex ? 'render' : 'source';
-            const tdClass = isBase ? ' base-col' : '';
-            tableHtml += `<td class="text-col${tdClass}"><div class="cell-container">
-                <div class="cell-tabs">
-                    <button class="cell-tab ${defaultTab === 'source' ? 'active' : ''}" onclick="switchCellTab('${cellId}','source',this)">源码${statusBadge}</button>
-                    <button class="cell-tab ${defaultTab === 'render' ? 'active' : ''}" onclick="switchCellTab('${cellId}','render',this)">预览</button>
-                </div>
-                <div id="${cellId}-source" class="cell-body source-view" style="display:${defaultTab === 'source' ? 'block' : 'none'}">${sourceHtml}</div>
-                <div id="${cellId}-render" class="cell-body render-view" style="display:${defaultTab === 'render' ? 'block' : 'none'}">${renderedHtml}</div>
-            </div></td>`;
-        });
-        tableHtml += `</tr>`;
-    });
-    tableHtml += `</tbody></table>`;
-
-    const contentArea = document.getElementById('contentArea');
+    tableHtml += `</tr></thead><tbody></tbody></table>`;
     contentArea.innerHTML = tableHtml;
-
-    requestAnimationFrame(() => {
-        const table = contentArea.querySelector('.compare-table');
-        if (table) initColResize(table);
-        document.querySelectorAll('.render-view').forEach(el => doKaTeX(el));
-    });
+    const tbody = contentArea.querySelector('tbody');
+    const table = contentArea.querySelector('.compare-table');
+    if (table) initColResize(table);
+    
+    const BATCH_SIZE = 50;
+    let rowIndex = 0;
+    function renderBatch() {
+        const end = Math.min(rowIndex + BATCH_SIZE, dataRows.length);
+        let batchHtml = '';
+        for (let r = rowIndex; r < end; r++) {
+            const row = dataRows[r];
+            const origIdx = row._origIdx !== undefined ? row._origIdx : r;
+            let indexContent = indexColOrig >= 0
+                ? escapeHtml(row[indexColOrig] || '')
+                : `<span style="color:#888;font-size:12px">${origIdx + 1}</span>`;
+            const baseText = row[baseOrigIdx] || '';
+            const hasComplex = dataCols.some(oi => { const t = detectContentType(row[oi] || ''); return t === 'rich' || t === 'image'; });
+            batchHtml += `<tr><td class="col-index">${indexContent}</td>`;
+            dataCols.forEach((colOrigIdx, visIdx) => {
+                const originalText = row[colOrigIdx] || '';
+                const type = detectContentType(originalText);
+                const isBase = visIdx === currentBaseCol;
+                const isSame = originalText === baseText;
+                const safeToDiff = type !== 'rich' && type !== 'image';
+                const diffs = (!isBase && !isSame && safeToDiff) ? computeDiff(baseText, originalText) : null;
+                let statusBadge = isBase ? '<span class="status-badge status-base">基准</span>' : isSame ? '<span class="status-badge status-same">一致</span>' : '<span class="status-badge status-diff">差异</span>';
+                let sourceHtml = isBase ? escapeHtml(originalText) : diffs ? renderDiffSource(originalText, diffs, false) : escapeHtml(originalText);
+                const renderedHtml = renderContent(originalText, type);
+                const cellId = `cell-${origIdx}-${visIdx}`;
+                const defaultTab = hasComplex ? 'render' : 'source';
+                const tdClass = isBase ? ' base-col' : '';
+                batchHtml += `<td class="text-col${tdClass}"><div class="cell-container"><div class="cell-tabs"><button class="cell-tab ${defaultTab === 'source' ? 'active' : ''}" onclick="switchCellTab('${cellId}','source',this)">源码${statusBadge}</button><button class="cell-tab ${defaultTab === 'render' ? 'active' : ''}" onclick="switchCellTab('${cellId}','render',this)">预览</button></div><div id="${cellId}-source" class="cell-body source-view" style="display:${defaultTab === 'source' ? 'block' : 'none'}">${sourceHtml}</div><div id="${cellId}-render" class="cell-body render-view" style="display:${defaultTab === 'render' ? 'block' : 'none'}">${renderedHtml}</div></div></td>`;
+            });
+            batchHtml += `</tr>`;
+        }
+        tbody.insertAdjacentHTML('beforeend', batchHtml);
+        rowIndex = end;
+        const startRow = Math.max(1, rowIndex - BATCH_SIZE + 1);
+        tbody.querySelectorAll(`tr:nth-child(n+${startRow}) .render-view`).forEach(el => doKaTeX(el));
+        if (rowIndex < dataRows.length) {
+            if ('requestIdleCallback' in window) requestIdleCallback(renderBatch, { timeout: 50 });
+            else setTimeout(renderBatch, 0);
+        }
+    }
+    if ('requestIdleCallback' in window) requestIdleCallback(renderBatch, { timeout: 50 });
+    else setTimeout(renderBatch, 0);
 }
 
 // ==================== 解析工具 ====================
 function cleanCellText(text) { if (!text) return ''; return String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim(); }
-function escapeTSVCell(text) { if (text == null) return ''; const str = String(text); return /[\n\r\t"]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str; }
-function parseTSV(text) {
-    if (!text || typeof text !== 'string') return [];
-    const rows = []; let currentRow = [], currentCell = '', inQuote = false, i = 0;
-    while (i < text.length) {
-        const c = text[i], nextC = text[i + 1];
-        if (inQuote) { if (c === '"' && nextC === '"') { currentCell += '"'; i++; } else if (c === '"') { inQuote = false; } else { currentCell += c; } }
-        else { if (c === '"') { inQuote = true; } else if (c === '\t') { currentRow.push(cleanCellText(currentCell)); currentCell = ''; } else if (c === '\n' || c === '\r') { if (c === '\r' && nextC === '\n') i++; currentRow.push(cleanCellText(currentCell)); currentCell = ''; if (currentRow.some(cell => cell !== '')) rows.push(currentRow); currentRow = []; } else { currentCell += c; } }
-        i++;
-    }
-    currentRow.push(cleanCellText(currentCell)); if (currentRow.some(cell => cell !== '')) rows.push(currentRow); return rows;
-}
-function handleFile(file) {
-    if (!file) return; const reader = new FileReader();
-    reader.onload = e => { try { const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' }); const ws = wb.Sheets[wb.SheetNames[0]]; const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }); const cleanedData = data.map(row => row.map(cell => cleanCellText(String(cell ?? '')))).filter(row => row.some(cell => cell !== '')); const tsvContent = cleanedData.map(r => r.map(cell => escapeTSVCell(cell)).join('\t')).join('\n'); document.getElementById('raw-input').value = tsvContent; onRawInputChange(); } catch (err) { alert('文件解析失败: ' + err.message); } };
-    reader.readAsArrayBuffer(file);
-}
+function escapeTSVCell(text) { if (text == null) return ''; const s = String(text); return /[\n\r\t"]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function parseTSV(text) { if (!text || typeof text !== 'string') return []; const rows = []; let curRow = [], curCell = '', inQ = false, i = 0; while (i < text.length) { const c = text[i], nc = text[i + 1]; if (inQ) { if (c === '"' && nc === '"') { curCell += '"'; i++; } else if (c === '"') { inQ = false; } else { curCell += c; } } else { if (c === '"') { inQ = true; } else if (c === '\t') { curRow.push(cleanCellText(curCell)); curCell = ''; } else if (c === '\n' || c === '\r') { if (c === '\r' && nc === '\n') i++; curRow.push(cleanCellText(curCell)); curCell = ''; if (curRow.some(x => x !== '')) rows.push(curRow); curRow = []; } else { curCell += c; } } i++; } curRow.push(cleanCellText(curCell)); if (curRow.some(x => x !== '')) rows.push(curRow); return rows; }
+function handleFile(file) { if (!file) return; const reader = new FileReader(); reader.onload = e => { try { const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' }); const ws = wb.Sheets[wb.SheetNames[0]]; const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }); const cd = data.map(r => r.map(c => cleanCellText(String(c ?? '')))).filter(r => r.some(c => c !== '')); const tsv = cd.map(r => r.map(c => escapeTSVCell(c)).join('\t')).join('\n'); document.getElementById('raw-input').value = tsv; onRawInputChange(); } catch (err) { alert('文件解析失败: ' + err.message); } }; reader.readAsArrayBuffer(file); }
 
 // ==================== Diff & 工具 ====================
 const dmp = new diff_match_patch();
@@ -765,7 +708,19 @@ function renderDiffSource(text, diffs, isBase) { if (!diffs) return escapeHtml(t
 function switchCellTab(id, tab, btn) { const p = btn.closest('.cell-container'); p.querySelectorAll('.cell-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); p.querySelector(`#${id}-source`).style.display = tab === 'source' ? 'block' : 'none'; p.querySelector(`#${id}-render`).style.display = tab === 'render' ? 'block' : 'none'; if (tab === 'render') requestAnimationFrame(() => doKaTeX(p.querySelector(`#${id}-render`))); }
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function escapeAttr(s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-function clearAll() { document.getElementById('raw-input').value = ''; document.getElementById('fileInput').value = ''; rawRows = []; headerLabels = []; colOrder = []; hiddenCols.clear(); indexColOrig = -1; currentBaseCol = 0; isHeaderRow = false; document.getElementById('chkHeaderRow').checked = false; document.getElementById('selIndexCol').value = '-1'; renderEmptyState(); renderColList(); updateSelectors(); }
+function clearAll() {
+    document.getElementById('raw-input').value = '';
+    document.getElementById('fileInput').value = '';
+    rawRows = []; headerLabels = []; colOrder = []; hiddenCols.clear();
+    indexColOrig = -1; currentBaseCol = 0; isHeaderRow = false;
+    document.getElementById('chkHeaderRow').checked = false;
+    document.getElementById('selIndexCol').value = '-1';
+    activeFilterIds = []; isFilterActive = false;
+    document.getElementById('filterInput').value = '';
+    document.getElementById('filterTags').innerHTML = '';
+    document.getElementById('filterStatus').textContent = '';
+    renderEmptyState(); renderColList(); updateSelectors();
+}
 </script>
 </body>
 </html>
