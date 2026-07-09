@@ -59,7 +59,7 @@
         .toggle-sidebar-btn:hover,.reset-col-btn:hover{border-color:var(--primary);color:var(--primary)}
         .toggle-sidebar-btn{margin-left:auto}
         
-        /* === 新增：筛选面板样式 === */
+        /* === 筛选面板样式 === */
         .filter-panel{display:flex;align-items:center;gap:6px;padding:4px 10px;background:#f0f4f8;border:1px solid #dbeafe;border-radius:6px;flex-wrap:wrap;flex:1;min-width:280px}
         .filter-panel label{font-size:12px;font-weight:600;color:#1e40af;white-space:nowrap}
         .filter-input{flex:1;min-width:120px;padding:3px 8px;border:1px solid #d0d7de;border-radius:4px;font-size:12px;outline:none;background:#fff}
@@ -72,7 +72,6 @@
         .filter-tag{display:inline-flex;align-items:center;gap:3px;padding:1px 8px;background:#dbeafe;color:#1e40af;border-radius:10px;font-size:11px;font-weight:500;animation:tagIn .2s ease}
         .filter-tag span{cursor:pointer;font-weight:700;opacity:.6;font-size:13px;line-height:1;margin-left:2px}.filter-tag span:hover{opacity:1;color:#dc2626}
         @keyframes tagIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
-        /* ========================== */
 
         .table-wrapper{flex:1;border-radius:8px;box-shadow:0 3px 15px rgba(0,0,0,.08);background:white;overflow:auto;min-height:0;position:relative}
         .compare-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
@@ -179,7 +178,7 @@
             <div class="preview-toolbar">
                 <div class="base-selector"><label for="baseColSelect">基准列：</label><select id="baseColSelect"></select></div>
                 
-                <!-- 🆕 新增：编号筛选面板 -->
+                <!-- 编号筛选面板 -->
                 <div class="filter-panel">
                     <label>🔍 编号筛选:</label>
                     <input type="text" id="filterInput" class="filter-input" placeholder="输入编号，多个用逗号/空格/换行分隔">
@@ -187,12 +186,11 @@
                     <button class="filter-btn clear" id="btnClearFilter">清除</button>
                     <span class="filter-status" id="filterStatus"></span>
                 </div>
-                <!-- 🆕 END -->
 
                 <button class="reset-col-btn" onclick="resetColumnWidths()" title="重置列宽"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>重置列宽</button>
                 <button class="toggle-sidebar-btn" id="toggleSidebarBtn" onclick="toggleSidebar()">◀ 收起面板</button>
             </div>
-            <!-- 🆕 筛选标签容器 -->
+            <!-- 筛选标签容器 -->
             <div class="filter-tags" id="filterTags"></div>
             
             <div id="contentArea" class="table-wrapper">
@@ -246,14 +244,14 @@ function resetColumnWidths(){document.querySelectorAll('.compare-table th.text-c
 let rawRows=[],headerLabels=[],colOrder=[],hiddenCols=new Set();
 let indexColOrig=-1,currentBaseCol=0,isHeaderRow=false,rafPending=false;
 
-// 🆕 筛选状态
-let activeFilterIds = []; // 当前生效的筛选ID列表(字符串)
+// 筛选状态
+let activeFilterIds = []; 
 let isFilterActive = false;
 
 function getVisibleDataCols(){return colOrder.filter(i=>i!==indexColOrig);}
 function scheduleRefresh(){if(rafPending)return;rafPending=true;requestAnimationFrame(()=>{rafPending=false;refreshAll();});}
 
-// 🆕 获取有效编号（统一自动序号与自定义列）
+// 获取有效编号（统一自动序号与自定义列）
 function getEffectiveId(dataRowIndex) {
     const dataRows = getDataRows();
     if (dataRowIndex < 0 || dataRowIndex >= dataRows.length) return '';
@@ -264,7 +262,7 @@ function getEffectiveId(dataRowIndex) {
     return String(dataRowIndex + 1);
 }
 
-// 🆕 获取过滤后的数据行（保留原始索引用于Diff）
+// 获取过滤后的数据行（保留原始索引用于Diff）
 function getFilteredDataRows() {
     const allRows = getDataRows();
     if (!isFilterActive || activeFilterIds.length === 0) return allRows;
@@ -273,7 +271,6 @@ function getFilteredDataRows() {
     for (let i = 0; i < allRows.length; i++) {
         const eid = getEffectiveId(i);
         if (filterSet.has(eid)) {
-            // 附加原始索引，确保渲染时能正确关联
             const rowCopy = [...allRows[i]];
             rowCopy._origIdx = i; 
             result.push(rowCopy);
@@ -294,11 +291,11 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(selIndex)selIndex.addEventListener('change',onConfigChange);
     if(baseSel)baseSel.addEventListener('change',onBaseColChange);
     
-    // 🆕 初始化筛选器
+    // 初始化筛选器
     initFilterPanel();
 });
 
-// 🆕 筛选面板逻辑
+// 筛选面板逻辑
 function initFilterPanel() {
     const input = document.getElementById('filterInput');
     const btnApply = document.getElementById('btnApplyFilter');
@@ -309,7 +306,6 @@ function initFilterPanel() {
     const doFilter = () => {
         const raw = input.value.trim();
         if (!raw) { doClear(); return; }
-        // 支持逗号、中文逗号、空格、换行分隔
         const ids = raw.split(/[,，\s\n]+/).map(s => s.trim()).filter(Boolean);
         const uniqueIds = [...new Set(ids)];
         if (uniqueIds.length === 0) { doClear(); return; }
@@ -318,10 +314,8 @@ function initFilterPanel() {
         isFilterActive = true;
         renderFilterTags(uniqueIds, tagsContainer);
         
-        // 触发重绘
         renderTable();
         
-        // 更新统计
         const filteredCount = getFilteredDataRows().length;
         const totalCount = getDataRows().length;
         status.textContent = `显示 ${filteredCount} / ${totalCount} 条`;
@@ -366,7 +360,7 @@ function onRawInputChange(){
     const raw=document.getElementById('raw-input').value.trim();
     if(!raw){rawRows=[];renderEmptyState();renderColList();updateSelectors();return;}
     rawRows=parseTSV(raw);initColState();
-    // 🆕 数据变更时清除筛选
+    // 数据变更时清除筛选
     activeFilterIds=[];isFilterActive=false;
     document.getElementById('filterInput').value='';
     document.getElementById('filterTags').innerHTML='';
@@ -396,7 +390,7 @@ function getDataRows(){return isHeaderRow?rawRows.slice(1):rawRows;}
 function renderEmptyState(){document.getElementById('contentArea').innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p>在左侧输入或导入数据即可实时预览</p></div>`;}
 
 // =====================================================================
-// 🚀 核心渲染引擎 v3.0 — 融合《一致性评测》渲染细则
+// 🚀 核心渲染引擎 v3.1 — 升级希腊字母映射 & 修复 in/to 误伤
 // =====================================================================
 
 /**
@@ -417,47 +411,91 @@ function unicodeNormalize(text) {
 }
 
 /**
-* 【细则一.3】符号渲染映射表
+ * 【细则一.3】符号渲染映射表 v2.0
+ * - 补全全套希腊字母大小写及变体
+ * - 修复 in/to 在英文文本中的误伤问题
  */
 function normalizeMathSymbols(text) {
     if (!text) return text;
+
+    // ========== 1. 安全映射表（无歧义符号）==========
     const map = {
+        // 运算符 & 关系符
         'times': '\\times', 'div': '\\div', 'cdot': '\\cdot', 'pm': '\\pm', 'mp': '\\mp',
         'ast': '\\ast', 'star': '\\star', 'circ': '\\circ', 'bullet': '\\bullet',
         'leq': '\\leq', 'le': '\\le', 'geq': '\\geq', 'ge': '\\ge',
         'neq': '\\neq', 'ne': '\\ne', 'approx': '\\approx', 'equiv': '\\equiv',
         'sim': '\\sim', 'propto': '\\propto', 'perp': '\\perp', 'parallel': '\\parallel',
-        'to': '\\to', 'rightarrow': '\\rightarrow', 'leftarrow': '\\leftarrow',
-        'Rightarrow': '\\Rightarrow', 'Leftarrow': '\\Leftarrow',
         'mapsto': '\\mapsto', 'leftrightarrow': '\\leftrightarrow',
         'cup': '\\cup', 'cap': '\\cap', 'subset': '\\subset', 'supset': '\\supset',
-        'in': '\\in', 'notin': '\\notin', 'emptyset': '\\emptyset',
+        'notin': '\\notin', 'emptyset': '\\emptyset',
         'forall': '\\forall', 'exists': '\\exists',
-        'alpha': '\\alpha', 'beta': '\\beta', 'gamma': '\\gamma', 'delta': '\\delta',
-        'epsilon': '\\epsilon', 'zeta': '\\zeta', 'eta': '\\eta', 'theta': '\\theta',
-        'iota': '\\iota', 'kappa': '\\kappa', 'lambda': '\\lambda', 'mu': '\\mu',
-        'nu': '\\nu', 'xi': '\\xi', 'pi': '\\pi', 'rho': '\\rho', 'sigma': '\\sigma',
-        'tau': '\\tau', 'upsilon': '\\upsilon', 'phi': '\\phi', 'chi': '\\chi',
-        'psi': '\\psi', 'omega': '\\omega',
-        'Gamma': '\\Gamma', 'Delta': '\\Delta', 'Theta': '\\Theta', 'Lambda': '\\Lambda',
-        'Xi': '\\Xi', 'Pi': '\\Pi', 'Sigma': '\\Sigma', 'Upsilon': '\\Upsilon',
-        'Phi': '\\Phi', 'Psi': '\\Psi', 'Omega': '\\Omega',
         'infty': '\\infty', 'partial': '\\partial', 'nabla': '\\nabla',
+        'therefore': '\\therefore', 'because': '\\because',
+        'angle': '\\angle', 'triangle': '\\triangle',
+        'wedge': '\\wedge', 'vee': '\\vee', 'neg': '\\neg',
+        'ldots': '\\ldots', 'cdots': '\\cdots',
+
+        // 函数名
         'sin': '\\sin', 'cos': '\\cos', 'tan': '\\tan',
         'log': '\\log', 'ln': '\\ln', 'lim': '\\lim',
         'max': '\\max', 'min': '\\min', 'det': '\\det', 'tr': '\\tr', 'rank': '\\rank',
         'arg': '\\arg', 'Re': '\\Re', 'Im': '\\Im',
+
+        // 间距 & 逻辑
         'quad': '\\quad', 'qquad': '\\qquad',
-        'therefore': '\\therefore', 'because': '\\because',
-        'angle': '\\angle', 'triangle': '\\triangle',
-        'wedge': '\\wedge', 'vee': '\\vee', 'neg': '\\neg',
-        'ldots': '\\ldots', 'cdots': '\\cdots'
+
+        // ===== 希腊字母大写 =====
+        'Gamma': '\\Gamma', 'Delta': '\\Delta', 'Theta': '\\Theta', 'Lambda': '\\Lambda',
+        'Xi': '\\Xi', 'Pi': '\\Pi', 'Sigma': '\\Sigma', 'Upsilon': '\\Upsilon',
+        'Phi': '\\Phi', 'Psi': '\\Psi', 'Omega': '\\Omega',
+
+        // ===== 希腊字母小写（含全部变体）=====
+        'alpha': '\\alpha', 'beta': '\\beta', 'gamma': '\\gamma', 'delta': '\\delta',
+        'epsilon': '\\epsilon', 'varepsilon': '\\varepsilon',
+        'zeta': '\\zeta', 'eta': '\\eta',
+        'theta': '\\theta', 'vartheta': '\\vartheta',
+        'iota': '\\iota', 'kappa': '\\kappa', 'varkappa': '\\varkappa',
+        'lambda': '\\lambda', 'mu': '\\mu', 'nu': '\\nu', 'xi': '\\xi',
+        'pi': '\\pi', 'varpi': '\\varpi',
+        'rho': '\\rho', 'varrho': '\\varrho',
+        'sigma': '\\sigma', 'varsigma': '\\varsigma',
+        'tau': '\\tau', 'upsilon': '\\upsilon',
+        'phi': '\\phi', 'varphi': '\\varphi',
+        'chi': '\\chi', 'psi': '\\psi', 'omega': '\\omega'
     };
+
+    // 按长度降序排列，确保 varepsilon 优先于 epsilon 匹配
     const cmds = Object.keys(map).sort((a, b) => b.length - a.length);
     for (const cmd of cmds) {
         const re = new RegExp(`(?<![\\\\a-zA-Z])${cmd}(?![a-zA-Z])`, 'g');
         text = text.replace(re, map[cmd]);
     }
+
+    // ========== 2. 上下文感知替换：in / to ==========
+    // 仅在数学上下文中替换，避免误伤英文句子
+    // 数学上下文定义：前后至少一侧是 数字/变量/运算符/括号/反斜杠命令
+    const mathCtx = '[0-9a-zA-Z_\\\\{}()\\[\\]+\\-=<>!,;]';
+
+    // "in" → \in ：左侧为数学字符 或 右侧为数学字符（排除 "in the", "in a" 等英文搭配）
+    text = text.replace(
+        new RegExp(`(?<![\\\\a-zA-Z])in(?![a-zA-Z])(?=${mathCtx})|(?<=${mathCtx})(?<![\\\\a-zA-Z])in(?![a-zA-Z])`, 'g'),
+        '\\in'
+    );
+
+    // "to" → \to ：要求更严格，通常需要左侧有表达式（如 x to 0, A to B）
+    // 排除 "to the", "to be", "to do" 等常见英文
+    text = text.replace(
+        new RegExp(`(?<=${mathCtx})(?<![\\\\a-zA-Z])to(?![a-zA-Z])`, 'g'),
+        '\\to'
+    );
+
+    // ========== 3. 箭头类独立替换（不易误伤）==========
+    text = text.replace(/(?<![\\a-zA-Z])rightarrow(?![a-zA-Z])/g, '\\rightarrow');
+    text = text.replace(/(?<![\\a-zA-Z])leftarrow(?![a-zA-Z])/g, '\\leftarrow');
+    text = text.replace(/(?<![\\a-zA-Z])Rightarrow(?![a-zA-Z])/g, '\\Rightarrow');
+    text = text.replace(/(?<![\\a-zA-Z])Leftarrow(?![a-zA-Z])/g, '\\Leftarrow');
+
     return text;
 }
 
@@ -639,9 +677,8 @@ function isPureImageContent(text) { if (!text) return false; const urls = extrac
 function renderImageGrid(text) { const urls = extractImageUrls(text); if (!urls.length) return '<span style="color:#ccc;font-style:italic;">(无有效图片)</span>'; return `<div class="img-grid">${urls.map((u, i) => `<div class="img-wrapper" data-img-url="${escapeAttr(u)}"><img src="${escapeAttr(u)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=img-error>⚠️ 加载失败</div>'"><span class="img-label">${i + 1}</span></div>`).join('')}</div>`; }
 function renderContent(text, type) { if (!text || !text.trim()) return '<span style="color:#ccc;font-style:italic;">(空)</span>'; if (type === 'image' || isPureImageContent(text)) return renderImageGrid(text); return renderMixedContent(text); }
 
-// ==================== 🆕 分片渲染表格（已适配筛选） ====================
+// ==================== 分片渲染表格（已适配筛选） ====================
 function renderTable() {
-    // ✅ 关键改动：使用过滤后的数据源
     const dataRows = getFilteredDataRows(); 
     const dataCols = getVisibleDataCols();
     
@@ -678,7 +715,6 @@ function renderTable() {
         let batchHtml = '';
         for (let r = rowIndex; r < end; r++) {
             const row = dataRows[r];
-            // ✅ 使用原始索引来获取正确的编号和Diff基准
             const origIdx = row._origIdx !== undefined ? row._origIdx : r;
             
             let indexContent = indexColOrig >= 0 
@@ -699,7 +735,6 @@ function renderTable() {
                 let statusBadge = isBase ? '<span class="status-badge status-base">基准</span>' : isSame ? '<span class="status-badge status-same">一致</span>' : '<span class="status-badge status-diff">差异</span>';
                 let sourceHtml = isBase ? escapeHtml(originalText) : diffs ? renderDiffSource(originalText, diffs, false) : escapeHtml(originalText);
                 const renderedHtml = renderContent(originalText, type);
-                // ✅ cell ID 使用原始索引，避免筛选后ID冲突
                 const cellId = `cell-${origIdx}-${visIdx}`;
                 const defaultTab = hasComplex ? 'render' : 'source';
                 const tdClass = isBase ? ' base-col' : '';
@@ -740,7 +775,7 @@ function clearAll() {
     indexColOrig = -1; currentBaseCol = 0; isHeaderRow = false; 
     document.getElementById('chkHeaderRow').checked = false; 
     document.getElementById('selIndexCol').value = '-1'; 
-    // 🆕 清除筛选状态
+    // 清除筛选状态
     activeFilterIds = []; isFilterActive = false;
     document.getElementById('filterInput').value = '';
     document.getElementById('filterTags').innerHTML = '';
