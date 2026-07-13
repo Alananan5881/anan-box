@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>安安百宝箱</title>
+    <title>安安的工具百宝箱</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -92,15 +92,19 @@
         <h1>🛠️ 安安百宝箱</h1>
         <div class="tool-list">
             <a href="image-compare.html" class="tool-btn">🖼️ 多图对比</a>
-            <a href="text-proofreading.html" class="tool-btn">📝 内容解析渲染校对</a>
+            <a href="session-compare.html" class="tool-btn">📊 Session 多轮对比</a>
+
             <div class="tool-btn" onclick="checkIntranet(
                 'https://71c5a476-8000.boz.alibaba-inc.com',
                 'https://71c5a476-8000.boz.alibaba-inc.com/api/ping',
+                '图片转URL服务',
                 this
-            )">🔗 图片批量转内部URL</div>
+            )">🔗 图片批量转 URL</div>
+
             <div class="tool-btn" onclick="checkIntranet(
                 'https://71c5a476-8001.boz.alibaba-inc.com',
-                'https://71c5a476-8001.boz.alibaba-inc.com/api/ping',
+                'https://71c5a476-8001.boz.alibaba-inc.com/api/status',
+                'OCR服务',
                 this
             )">📝 图片批量文本化</div>
 
@@ -111,51 +115,58 @@
 
     <div class="anan-mask" id="ananMask" onclick="if(event.target===this)closeMask()">
         <div class="anan-tip-box">
-            <div class="anan-tip-text">安安提示：不行哦不行哦，使用这个小工具要连接内网哦，快去连内网~₍₍ ᕕ(´◔⌓◔)ᕗ⁾⁾</div>
+            <div class="anan-tip-text" id="ananTipText">安安提示：不行哦不行哦，要使用这个小工具要连接内网哦 ₍₍ ᕕ(´◔⌓◔)ᕗ⁾⁾</div>
             <button class="anan-close-btn" onclick="closeMask()">知道啦</button>
         </div>
     </div>
 
     <script>
-    /**
-     * 内网检测跳转（兼容手机端 v3）
-     *
-     * 方案：不用 window.open，检测通过后用 <a> 标签模拟跳转。
-     * - 电脑端：新标签页打开
-     * - 手机端/钉钉：当前页面跳转（避免弹窗拦截问题）
-     *
-     * 防 DNS 劫持：严格校验响应体 {"ok":true}
-     */
-    async function checkIntranet(toolUrl, pingUrl, btn) {
+    async function checkIntranet(toolUrl, pingUrl, serviceName, btn) {
         if (btn.classList.contains('checking')) return;
         btn.classList.add('checking');
         var originalText = btn.textContent;
         btn.textContent = originalText + ' ⏳';
 
         var isIntranet = false;
-        try {
-            var ctrl = new AbortController();
-            var tid = setTimeout(function() { ctrl.abort(); }, 2000);
-            var res = await fetch(pingUrl, { mode: 'cors', signal: ctrl.signal });
-            clearTimeout(tid);
+        var errorMsg = '';
 
-            // 严格校验响应内容，防止 DNS 劫持/代理返回假响应
-            if (res.ok) {
-                var data = await res.json();
-                isIntranet = data && data.ok === true;
+        // 尝试两次检测
+        for (var attempt = 0; attempt < 2; attempt++) {
+            try {
+                var ctrl = new AbortController();
+                var tid = setTimeout(function() { ctrl.abort(); }, 3000);
+                var res = await fetch(pingUrl, { mode: 'cors', signal: ctrl.signal });
+                clearTimeout(tid);
+
+                if (res.ok) {
+                    var data = await res.json();
+                    if (data && (data.ok === true || data.has_api_key !== undefined)) {
+                        isIntranet = true;
+                        break;
+                    } else {
+                        errorMsg = serviceName + '响应异常';
+                    }
+                } else {
+                    errorMsg = serviceName + '无法访问（HTTP ' + res.status + '）';
+                }
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    errorMsg = serviceName + '连接超时，可能服务未启动';
+                } else {
+                    errorMsg = serviceName + '连接失败，请检查网络';
+                }
+                if (attempt === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
             }
-        } catch (e) {
-            isIntranet = false;
         }
 
         btn.classList.remove('checking');
         btn.textContent = originalText;
 
         if (isIntranet) {
-            // 内网可达 → 用 <a> 标签模拟点击跳转，兼容所有浏览器
             var a = document.createElement('a');
             a.href = toolUrl;
-            // 判断是否为移动端：移动端当前页跳转，电脑端新标签页
             var isMobile = /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
             if (!isMobile) a.target = '_blank';
             a.rel = 'noopener noreferrer';
@@ -163,7 +174,10 @@
             a.click();
             document.body.removeChild(a);
         } else {
-            // 不在内网 → 弹提示
+            var tipText = document.getElementById('ananTipText');
+            tipText.innerHTML = '安安提示：' + serviceName + '无法访问<br><br>' + 
+                               errorMsg + '<br><br>' +
+                               '请确认：<br>1. 已连接内网<br>2. 服务已启动<br>3. 联系安安检查服务状态';
             document.getElementById('ananMask').classList.add('show');
         }
     }
