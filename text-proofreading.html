@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>安安小工具系列 | 内容解析校对 v3.3</title>
+    <title>安安小工具系列 | 内容解析校对 v3.4</title>
     <!-- 外部依赖库 -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
@@ -13,6 +12,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/diff-match-patch@1.0.5/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     
     <style>
         :root{--primary:#1d4ed8;--gray-100:#f8fafc;--gray-200:#e5e7eb;--gray-900:#111827;--header-bg:#fff;--index-bg:#fafafa;--index-header-bg:#fff;--top-bar-h:48px;--sidebar-w:280px}
@@ -69,9 +69,10 @@
         .preview-toolbar{display:flex;align-items:center;gap:8px;padding:0 4px 8px;flex-shrink:0;flex-wrap:wrap}
         .base-selector{display:flex;align-items:center;gap:6px;font-size:13px;color:#555}
         .base-selector select{padding:4px 8px;border:1px solid #d0d7de;border-radius:4px;font-size:13px;outline:none;cursor:pointer;min-width:100px}
-        .toggle-sidebar-btn,.reset-col-btn{padding:4px 10px;border:1px solid #d0d7de;background:#fff;border-radius:4px;font-size:12px;cursor:pointer;color:#555;transition:all .2s;display:inline-flex;align-items:center;gap:4px}
-        .toggle-sidebar-btn:hover,.reset-col-btn:hover{border-color:var(--primary);color:var(--primary)}
+        .toggle-sidebar-btn,.reset-col-btn,.toggle-expand-btn{padding:4px 10px;border:1px solid #d0d7de;background:#fff;border-radius:4px;font-size:12px;cursor:pointer;color:#555;transition:all .2s;display:inline-flex;align-items:center;gap:4px}
+        .toggle-sidebar-btn:hover,.reset-col-btn:hover,.toggle-expand-btn:hover{border-color:var(--primary);color:var(--primary)}
         .toggle-sidebar-btn{margin-left:auto}
+        .toggle-expand-btn.active{border-color:var(--primary);color:var(--primary);background:#eff6ff}
         
         /* === 筛选面板 === */
         .filter-panel{display:flex;align-items:center;gap:6px;padding:4px 10px;background:#f0f4f8;border:1px solid #dbeafe;border-radius:6px;flex-wrap:wrap;flex:1;min-width:280px}
@@ -113,6 +114,21 @@
         .cell-body::-webkit-scrollbar{width:6px}.cell-body::-webkit-scrollbar-track{background:#f1f1f1}.cell-body::-webkit-scrollbar-thumb{background:#c1c1c1;border-radius:3px}.cell-body::-webkit-scrollbar-thumb:hover{background:#a8a8a8}
         .source-view{font-family:'Menlo','Monaco','Courier New',monospace;font-size:12px;white-space:pre-wrap}
         
+        /* === v3.4 新增：单元格导出按钮 & 展开模式 === */
+        .cell-export-btn{
+            position:absolute;top:4px;right:4px;z-index:10;
+            width:24px;height:24px;border:none;border-radius:4px;
+            background:rgba(29,78,216,.08);color:var(--primary);
+            cursor:pointer;display:flex;align-items:center;justify-content:center;
+            opacity:0;transition:all .2s;font-size:14px;line-height:1;
+        }
+        .cell-container:hover .cell-export-btn{opacity:1}
+        .cell-export-btn:hover{background:var(--primary);color:#fff}
+        .cell-export-btn.exporting{pointer-events:none;opacity:.6}
+        .table-wrapper.expanded-mode .cell-body{
+            max-height:none!important;overflow-y:visible!important;
+        }
+
         /* === Diff 高亮 === */
         .diff-ins{background:#dcfce7;color:#166534;padding:1px 2px;border-radius:2px}
         .diff-del{background:#fee2e2;color:#991b1b;padding:1px 2px;border-radius:2px;text-decoration:line-through}
@@ -198,7 +214,7 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             <span>百宝箱</span>
         </button>
-        <h1 class="tool-title">📝 安安小工具系列 | 内容解析校对</h1>
+        <h1 class="tool-title">📝 安安小工具系列 | 内容解析校对 v3.4</h1>
         <div class="header-actions"><button class="btn-action" onclick="clearAll()">清空数据</button></div>
     </div>
 
@@ -240,6 +256,11 @@
                     <span class="filter-status" id="filterStatus"></span>
                 </div>
 
+                <!-- v3.4 新增：展开单元格按钮 -->
+                <button class="toggle-expand-btn" id="toggleExpandBtn" onclick="toggleExpandMode()" title="展开所有单元格（适配滚动截图）">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                    展开单元格
+                </button>
                 <button class="reset-col-btn" onclick="resetColumnWidths()" title="重置列宽"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>重置列宽</button>
                 <button class="toggle-sidebar-btn" id="toggleSidebarBtn" onclick="toggleSidebar()">◀ 收起面板</button>
             </div>
@@ -377,6 +398,7 @@ function resetColumnWidths(){
 let rawRows=[],headerLabels=[],colOrder=[],hiddenCols=new Set();
 let indexColOrig=-1,currentBaseCol=0,isHeaderRow=false,rafPending=false;
 let activeFilterIds=[],isFilterActive=false;
+let isExpandedMode=false; // v3.4 新增
 
 function getVisibleDataCols(){return colOrder.filter(i=>i!==indexColOrig);}
 function scheduleRefresh(){if(rafPending)return;rafPending=true;requestAnimationFrame(()=>{rafPending=false;refreshAll();});}
@@ -572,7 +594,7 @@ function renderEmptyState(){
 }
 
 // =====================================================================
-// 🚀 核心渲染引擎 v3.3 — 默认预览 & LaTeX环境保护 & 预渲染
+// 🚀 核心渲染引擎 v3.4 — 默认预览 & LaTeX环境保护 & 预渲染
 // =====================================================================
 
 /** Unicode 归一化 */
@@ -777,7 +799,7 @@ function renderMixedContent(text){
     if(!text||!text.trim())return '<span style="color:#d1d5db;font-style:italic;font-size:12px;">—</span>';
     let cleaned=unicodeNormalize(text);
     cleaned=cleaned.replace(/\[\[[\w_]+\]\]/g,'').replace(/\{\{[\w_]+\(.*?\)\}\}/g,'');
-    cleaned=normalizeMathSymbolsSafe(cleaned); // ★ v3.3 安全版本
+    cleaned=normalizeMathSymbolsSafe(cleaned);
     cleaned=wrapNakedLatex(cleaned);
     let html='';
     try{
@@ -857,7 +879,7 @@ function renderContent(text,type){
     return renderMixedContent(text);
 }
 
-// ==================== 📊 分片渲染表格 v3.3 ====================
+// ==================== 📊 分片渲染表格 v3.4 ====================
 function renderTable(){
     const dataRows=getFilteredDataRows();
     const dataCols=getVisibleDataCols();
@@ -881,7 +903,6 @@ function renderTable(){
     });
     tableHtml+=`</tr></thead><tbody>`;
     contentArea.innerHTML=tableHtml+`</tbody></table>`;
-    
     const tbody=contentArea.querySelector('tbody');
     const table=contentArea.querySelector('.compare-table');
     if(table)initColResize(table);
@@ -918,7 +939,8 @@ function renderTable(){
                 const colDefaultTab=isShortPlain?'source':'render';
                 
                 const tdClass=isBase?' base-col':'';
-                batchHtml+=`<td class="text-col${tdClass}"><div class="cell-container"><div class="cell-tabs"><button class="cell-tab ${colDefaultTab==='source'?'active':''}" onclick="switchCellTab('${cellId}','source',this)">源码${statusBadge}</button><button class="cell-tab ${colDefaultTab==='render'?'active':''}" onclick="switchCellTab('${cellId}','render',this)">预览</button></div><div id="${cellId}-source" class="cell-body source-view" style="display:${colDefaultTab==='source'?'block':'none'}">${sourceHtml}</div><div id="${cellId}-render" class="cell-body render-view" style="display:${colDefaultTab==='render'?'block':'none'}">${renderedHtml}</div></div></td>`;
+                // ★ v3.4: 添加单元格导出按钮
+                batchHtml+=`<td class="text-col${tdClass}"><div class="cell-container"><button class="cell-export-btn" onclick="exportCellImage('${cellId}-render',this)" title="导出为图片">📷</button><div class="cell-tabs"><button class="cell-tab ${colDefaultTab==='source'?'active':''}" onclick="switchCellTab('${cellId}','source',this)">源码${statusBadge}</button><button class="cell-tab ${colDefaultTab==='render'?'active':''}" onclick="switchCellTab('${cellId}','render',this)">预览</button></div><div id="${cellId}-source" class="cell-body source-view" style="display:${colDefaultTab==='source'?'block':'none'}">${sourceHtml}</div><div id="${cellId}-render" class="cell-body render-view" style="display:${colDefaultTab==='render'?'block':'none'}">${renderedHtml}</div></div></td>`;
             });
             batchHtml+=`</tr>`;
         }
@@ -1027,6 +1049,60 @@ function switchCellTab(id,tab,btn){
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function escapeAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
+// ==================== 📷 v3.4 新增：单元格导出图片 ====================
+async function exportCellImage(renderElId, btn) {
+    const el = document.getElementById(renderElId);
+    if (!el || typeof html2canvas !== 'function') {
+        alert('导出组件未加载，请检查网络后刷新重试');
+        return;
+    }
+    btn.classList.add('exporting');
+    btn.textContent = '⏳';
+    try {
+        // 临时展开以捕获完整内容
+        const origMaxH = el.style.maxHeight;
+        const origOverflow = el.style.overflowY;
+        el.style.maxHeight = 'none';
+        el.style.overflowY = 'visible';
+
+        const canvas = await html2canvas(el, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: '#ffffff',
+            logging: false,
+            windowWidth: el.scrollWidth,
+            windowHeight: el.scrollHeight,
+        });
+
+        // 恢复原始样式
+        el.style.maxHeight = origMaxH;
+        el.style.overflowY = origOverflow;
+
+        // 触发下载
+        const link = document.createElement('a');
+        link.download = `cell-${renderElId}-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    } catch (err) {
+        console.error('Export failed:', err);
+        alert('导出失败: ' + err.message);
+    } finally {
+        btn.classList.remove('exporting');
+        btn.textContent = '📷';
+    }
+}
+
+// ==================== ↔️ v3.4 新增：展开/收起单元格模式 ====================
+function toggleExpandMode() {
+    isExpandedMode = !isExpandedMode;
+    const wrapper = document.getElementById('contentArea');
+    const btn = document.getElementById('toggleExpandBtn');
+    wrapper.classList.toggle('expanded-mode', isExpandedMode);
+    btn.classList.toggle('active', isExpandedMode);
+    btn.title = isExpandedMode ? '收起单元格（恢复固定高度）' : '展开所有单元格（适配滚动截图）';
+}
+
 function clearAll(){
     document.getElementById('raw-input').value='';
     document.getElementById('fileInput').value='';
@@ -1038,6 +1114,10 @@ function clearAll(){
     document.getElementById('filterInput').value='';
     document.getElementById('filterTags').innerHTML='';
     document.getElementById('filterStatus').textContent='';
+    // v3.4: 重置展开模式
+    isExpandedMode=false;
+    document.getElementById('contentArea').classList.remove('expanded-mode');
+    document.getElementById('toggleExpandBtn').classList.remove('active');
     renderEmptyState();renderColList();updateSelectors();
 }
 </script>
