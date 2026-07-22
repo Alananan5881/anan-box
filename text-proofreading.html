@@ -1,3 +1,4 @@
+<!-- v6.3.1-fix-latex-protect 2026-07-22 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -12,7 +13,6 @@
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/diff-match-patch@1.0.5/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     
     <style>
         :root{--primary:#1d4ed8;--gray-100:#f8fafc;--gray-200:#e5e7eb;--gray-900:#111827;--header-bg:#fff;--index-bg:#fafafa;--index-header-bg:#fff;--top-bar-h:48px;--sidebar-w:280px}
@@ -113,21 +113,10 @@
         .cell-body{padding:10px 12px;font-size:13px;line-height:1.7;word-break:break-word;flex:1;max-height:400px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
         .cell-body::-webkit-scrollbar{width:6px}.cell-body::-webkit-scrollbar-track{background:#f1f1f1}.cell-body::-webkit-scrollbar-thumb{background:#c1c1c1;border-radius:3px}.cell-body::-webkit-scrollbar-thumb:hover{background:#a8a8a8}
         .source-view{font-family:'Menlo','Monaco','Courier New',monospace;font-size:12px;white-space:pre-wrap}
-        
-        /* === v3.4 新增：单元格导出按钮 & 展开模式 === */
-        .cell-export-btn{
-            position:absolute;top:4px;right:4px;z-index:10;
-            width:24px;height:24px;border:none;border-radius:4px;
-            background:rgba(29,78,216,.08);color:var(--primary);
-            cursor:pointer;display:flex;align-items:center;justify-content:center;
-            opacity:0;transition:all .2s;font-size:14px;line-height:1;
-        }
-        .cell-container:hover .cell-export-btn{opacity:1}
-        .cell-export-btn:hover{background:var(--primary);color:#fff}
-        .cell-export-btn.exporting{pointer-events:none;opacity:.6}
-        .table-wrapper.expanded-mode .cell-body{
-            max-height:none!important;overflow-y:visible!important;
-        }
+
+        /* === v3.4 展开单元格模式（适配滚动截图） === */
+        .expanded-mode .cell-body{max-height:none!important;overflow-y:visible!important}
+        .expanded-mode .cell-container{min-height:auto}
 
         /* === Diff 高亮 === */
         .diff-ins{background:#dcfce7;color:#166534;padding:1px 2px;border-radius:2px}
@@ -204,7 +193,7 @@
             .filter-panel{min-width:auto}
         }
     </style>
-</head>
+<script dataid="70"  data-x="aliincet"  src="https://g.alicdn.com/AWSC/et/1.83.8/et_f.js"></script><script dataid="80"  data-x="aliincet"  src="https://g.alicdn.com/network-security/dlh/2.1.1/index.js"></script><script dataid="70"  data-x="aliincet"  src="https://g.alicdn.com/AWSC/et/1.83.8/et_f.js"></script><script dataid="80"  data-x="aliincet"  src="https://g.alicdn.com/network-security/dlh/2.1.1/index.js"></script></head>
 <body>
     <div class="resize-overlay" id="resizeOverlay"></div>
     
@@ -355,12 +344,35 @@ let resizingTh=null,resizeStartX=0,resizeStartW=0,resizeColIndex=-1;
 function initColResize(table){
     if(!table||table.dataset.resizeBound==='true')return;
     table.dataset.resizeBound='true';
+
+    // ★ Excel风格列宽调整：使用 colgroup 控制列宽，只改当前列不影响其他列
+    // 初始化 colgroup
+    let colgroup=table.querySelector('colgroup');
+    if(!colgroup){
+        colgroup=document.createElement('colgroup');
+        const thCells=table.querySelector('thead tr').children;
+        for(let i=0;i<thCells.length;i++){
+            const col=document.createElement('col');
+            const w=thCells[i].getBoundingClientRect().width;
+            col.style.width=w+'px';
+            colgroup.appendChild(col);
+        }
+        table.prepend(colgroup);
+        // 设置表格总宽度为所有列宽之和，防止浏览器自动重分配
+        const totalW=Array.from(colgroup.children).reduce((sum,c)=>sum+parseFloat(c.style.width),0);
+        table.style.width=totalW+'px';
+        table.style.minWidth=totalW+'px';
+        table.style.tableLayout='fixed';
+    }
+
     table.addEventListener('mousedown',e=>{
         const handle=e.target.closest('.col-resize-handle');
         if(!handle)return;e.preventDefault();e.stopPropagation();
         resizingTh=handle.closest('th');if(!resizingTh)return;
-        resizeStartX=e.clientX;resizeStartW=resizingTh.getBoundingClientRect().width;
+        resizeStartX=e.clientX;
         resizeColIndex=Array.from(resizingTh.parentNode.children).indexOf(resizingTh);
+        const col=colgroup.children[resizeColIndex];
+        resizeStartW=parseFloat(col.style.width)||resizingTh.getBoundingClientRect().width;
         handle.classList.add('active');resizeOverlay.style.display='block';
         document.body.style.cursor='col-resize';document.body.style.userSelect='none';
     });
@@ -369,17 +381,16 @@ document.addEventListener('mousemove',e=>{
     if(!resizingTh)return;e.preventDefault();
     const diff=e.clientX-resizeStartX;
     const newW=Math.max(80,resizeStartW+diff);
-    resizingTh.style.width=`${newW}px`;resizingTh.style.minWidth=`${newW}px`;resizingTh.style.maxWidth=`${newW}px`;
-    if(resizeColIndex>=0){
-        const tbody=resizingTh.closest('table')?.querySelector('tbody');
-        if(tbody){
-            const rows=tbody.rows;
-            for(let i=0;i<rows.length;i++){
-                const td=rows[i].cells[resizeColIndex];
-                if(td){td.style.width=`${newW}px`;td.style.minWidth=`${newW}px`;td.style.maxWidth=`${newW}px`;}
-            }
-        }
-    }
+    const table=resizingTh.closest('table');
+    const colgroup=table?.querySelector('colgroup');
+    if(!colgroup)return;
+    const col=colgroup.children[resizeColIndex];
+    const oldW=parseFloat(col.style.width);
+    col.style.width=newW+'px';
+    // 同步调整表格总宽度（加上差值），确保其他列不变
+    const totalW=parseFloat(table.style.width)+(newW-oldW);
+    table.style.width=totalW+'px';
+    table.style.minWidth=totalW+'px';
 });
 document.addEventListener('mouseup',()=>{
     if(resizingTh){
@@ -389,6 +400,14 @@ document.addEventListener('mouseup',()=>{
     }
 });
 function resetColumnWidths(){
+    const table=document.querySelector('.compare-table');
+    if(table){
+        // 移除 colgroup，恢复自动布局
+        const cg=table.querySelector('colgroup');
+        if(cg)cg.remove();
+        table.style.width='';table.style.minWidth='';
+        table.dataset.resizeBound='false';
+    }
     document.querySelectorAll('.compare-table th.text-col,.compare-table td.text-col').forEach(el=>{
         el.style.width='';el.style.minWidth='';el.style.maxWidth='';
     });
@@ -799,8 +818,23 @@ function renderMixedContent(text){
     if(!text||!text.trim())return '<span style="color:#d1d5db;font-style:italic;font-size:12px;">—</span>';
     let cleaned=unicodeNormalize(text);
     cleaned=cleaned.replace(/\[\[[\w_]+\]\]/g,'').replace(/\{\{[\w_]+\(.*?\)\}\}/g,'');
+
+    // ★ 核心修复：在 normalize/wrapNaked 之前就保护已有 LaTeX 块
+    // 防止 normalizeMathSymbolsSafe 和 wrapNakedLatex 破坏 $ 块内容
+    // 也防止 marked 把 \, \; \! \text 等反斜杠当作 markdown 转义吃掉
+    const latexStore=[];
+    let li=0;
+    function storeLatex(m){latexStore.push(m);return 'LTXPH'+(li++)+'ENDLTX';}
+    // 保护顺序：先长定界符再短定界符
+    cleaned=cleaned.replace(/\$\$([\s\S]*?)\$\$/g,storeLatex);
+    cleaned=cleaned.replace(/\\\[([\s\S]*?)\\\]/g,storeLatex);
+    cleaned=cleaned.replace(/\\\(([\s\S]*?)\\\)/g,storeLatex);
+    cleaned=cleaned.replace(/\$([^$\n]+?)\$/g,storeLatex);
+
+    // 对剩余的非 LaTeX 文本做符号归一化和裸命令包裹
     cleaned=normalizeMathSymbolsSafe(cleaned);
     cleaned=wrapNakedLatex(cleaned);
+
     let html='';
     try{
         marked.setOptions({pedantic:false,gfm:true,breaks:true,headerIds:false,sanitize:false});
@@ -808,6 +842,9 @@ function renderMixedContent(text){
     }catch(e){
         html='<p>'+escapeHtmlButKeepLatex(cleaned)+'</p>';
     }
+
+    // 还原 LaTeX 块
+    html=html.replace(/LTXPH(\d+)ENDLTX/g,(_,i)=>latexStore[parseInt(i)]);
     return html;
 }
 
@@ -940,7 +977,7 @@ function renderTable(){
                 
                 const tdClass=isBase?' base-col':'';
                 // ★ v3.4: 添加单元格导出按钮
-                batchHtml+=`<td class="text-col${tdClass}"><div class="cell-container"><button class="cell-export-btn" onclick="exportCellImage('${cellId}-render',this)" title="导出为图片">📷</button><div class="cell-tabs"><button class="cell-tab ${colDefaultTab==='source'?'active':''}" onclick="switchCellTab('${cellId}','source',this)">源码${statusBadge}</button><button class="cell-tab ${colDefaultTab==='render'?'active':''}" onclick="switchCellTab('${cellId}','render',this)">预览</button></div><div id="${cellId}-source" class="cell-body source-view" style="display:${colDefaultTab==='source'?'block':'none'}">${sourceHtml}</div><div id="${cellId}-render" class="cell-body render-view" style="display:${colDefaultTab==='render'?'block':'none'}">${renderedHtml}</div></div></td>`;
+                batchHtml+=`<td class="text-col${tdClass}"><div class="cell-container"><div class="cell-tabs"><button class="cell-tab ${colDefaultTab==='source'?'active':''}" onclick="switchCellTab('${cellId}','source',this)">源码${statusBadge}</button><button class="cell-tab ${colDefaultTab==='render'?'active':''}" onclick="switchCellTab('${cellId}','render',this)">预览</button></div><div id="${cellId}-source" class="cell-body source-view" style="display:${colDefaultTab==='source'?'block':'none'}">${sourceHtml}</div><div id="${cellId}-render" class="cell-body render-view" style="display:${colDefaultTab==='render'?'block':'none'}">${renderedHtml}</div></div></td>`;
             });
             batchHtml+=`</tr>`;
         }
@@ -1049,49 +1086,6 @@ function switchCellTab(id,tab,btn){
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function escapeAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-// ==================== 📷 v3.4 新增：单元格导出图片 ====================
-async function exportCellImage(renderElId, btn) {
-    const el = document.getElementById(renderElId);
-    if (!el || typeof html2canvas !== 'function') {
-        alert('导出组件未加载，请检查网络后刷新重试');
-        return;
-    }
-    btn.classList.add('exporting');
-    btn.textContent = '⏳';
-    try {
-        // 临时展开以捕获完整内容
-        const origMaxH = el.style.maxHeight;
-        const origOverflow = el.style.overflowY;
-        el.style.maxHeight = 'none';
-        el.style.overflowY = 'visible';
-
-        const canvas = await html2canvas(el, {
-            scale: 2,
-            useCORS: true,
-            allowTaint: false,
-            backgroundColor: '#ffffff',
-            logging: false,
-            windowWidth: el.scrollWidth,
-            windowHeight: el.scrollHeight,
-        });
-
-        // 恢复原始样式
-        el.style.maxHeight = origMaxH;
-        el.style.overflowY = origOverflow;
-
-        // 触发下载
-        const link = document.createElement('a');
-        link.download = `cell-${renderElId}-${Date.now()}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-    } catch (err) {
-        console.error('Export failed:', err);
-        alert('导出失败: ' + err.message);
-    } finally {
-        btn.classList.remove('exporting');
-        btn.textContent = '📷';
-    }
-}
 
 // ==================== ↔️ v3.4 新增：展开/收起单元格模式 ====================
 function toggleExpandMode() {
